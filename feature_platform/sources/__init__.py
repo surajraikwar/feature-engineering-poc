@@ -1,6 +1,16 @@
-"""Data source implementations for the feature platform."""
+# feature_platform/sources/__init__.py
+from .base import Source, SourceConfig
+from .spark_base import SparkSource, SparkSourceConfig
+from .databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
+from .databricks_sql import DatabricksSQLSource, DeltaSQLSourceConfig # Updated line
 
-from .base import Source, SourceType, SourceConfig
-from .databricks import DatabricksSource
-
-__all__ = ["Source", "SourceType", "SourceConfig", "DatabricksSource"]
+__all__ = [
+    "Source", 
+    "SourceConfig", 
+    "SparkSource", 
+    "SparkSourceConfig",
+    "DatabricksSparkSource", 
+    "DatabricksSparkSourceConfig",
+    "DatabricksSQLSource",
+    "DeltaSQLSourceConfig"
+]

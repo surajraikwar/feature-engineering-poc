@@ -6,32 +6,59 @@ A feature platform for managing machine learning features with a focus on data q
 
 ```
 feature-platform/
-├── config/               # Configuration files
+├── config/               # Configuration files (Not extensively used yet)
 ├── docs/                 # Documentation
 ├── feature_platform/     # Core package
 │   ├── core/            # Core functionality
+│   │   ├── config.py    # Centralized configuration classes (e.g., DatabricksConnectionConfig)
+│   │   └── spark.py     # Spark session management (SparkSessionManager)
+│   ├── features/        # Feature transformation logic
+│   │   ├── __init__.py
+│   │   └── transform.py # Base FeatureTransformer and example implementations
 │   ├── sources/         # Data source implementations
-│   ├── storage/         # Storage backends
-│   └── utils/           # Utility functions
-├── registry/            # Entity and feature definitions
+│   │   ├── __init__.py
+│   │   ├── base.py      # Base Source class
+│   │   ├── databricks_spark.py # Source for Databricks using Spark (reads Delta tables)
+│   │   ├── databricks_sql.py   # Source for Databricks using SQL Connector
+│   │   └── spark_base.py     # Base SparkSource class
+│   ├── storage/         # Storage backends (Placeholder)
+│   └── utils/           # Utility functions (Placeholder)
+├── registry/            # Entity and feature definitions (YAML based)
 │   ├── entity/          # Entity definitions
 │   │   ├── {entity_type}/  # One per entity type
 │   │   └── shared/      # Shared types and utilities
-│   ├── feature/         # Feature definitions
-│   └── schema/          # Shared schemas and types
-├── runner/              # Scripts for running the platform
+│   ├── feature/         # Feature definitions (Placeholder)
+│   └── schema/          # Shared schemas and types (Placeholder)
+├── runner/              # Scripts for running example jobs
+│   └── run_spark_job.py # Example Spark job demonstrating source and feature transformers
 ├── scripts/             # Utility scripts
 │   ├── generate_entity_diagram.py  # Generate ERD
-│   ├── migrate_sources.py          # Migrate source configs
+│   ├── migrate_sources.py          # Migrate source configs (Placeholder)
 │   ├── validate_registry.py        # Validate registry
-│   └── validate_sources.py         # Validate sources
-├── source/              # Source configurations
+│   └── validate_sources.py         # Validate sources (Placeholder)
+├── source/              # Source configurations (YAML definitions for data sources)
 │   └── {source_type}/   # Type of source (e.g., transaction)
-│       └── v{version}/  # Versioned directory
+│       └── v{version}/  # Versioned directory (e.g., source/transaction/v1/mm_transaction_source.yaml)
 └── tests/               # Test suite
     ├── integration/     # Integration tests
     └── unit/            # Unit tests
 ```
+
+## Core Components
+
+### Spark Integration
+*   **`SparkSessionManager` (`feature_platform/core/spark.py`):** Manages the lifecycle of a `SparkSession`, ensuring it's created when needed and properly stopped. It can be used as a context manager or by directly calling `get_session()` and `stop_session()`.
+*   **`DatabricksConnectionConfig` (`feature_platform/core/config.py`):** A centralized dataclass to hold connection parameters for Databricks, sourced from environment variables (e.g., `DATABRICKS_SERVER_HOSTNAME`, `DATABRICKS_TOKEN`, `DATABRICKS_HTTP_PATH`). This config is intended to be used by various Databricks-related components.
+
+### Data Sources
+The platform provides several base and concrete classes for defining data sources:
+*   **`Source` (`feature_platform/sources/base.py`):** An abstract base class for all data sources.
+*   **`SparkSource` (`feature_platform/sources/spark_base.py`):** An abstract base class for sources that return Spark DataFrames. It requires a `SparkSessionManager` for its operation.
+*   **`DatabricksSparkSource` (`feature_platform/sources/databricks_spark.py`):** A concrete implementation of `SparkSource` for reading data from Databricks, typically Delta tables. It uses the Spark session to read data specified by a `location` (e.g., table name or path).
+*   **`DatabricksSQLSource` (`feature_platform/sources/databricks_sql.py`):** A source that connects to Databricks using the `databricks-sql-connector`. It reads data using SQL queries and returns pandas DataFrames. This is suitable for scenarios where a full Spark session isn't required or available for the client.
+
+### Feature Transformers
+*   **`FeatureTransformer` (`feature_platform/features/transform.py`):** An abstract base class for defining feature transformation logic. Concrete implementations (e.g., `SimpleAgeCalculator`, `WithGreeting` also in `transform.py`) take a Spark DataFrame as input, apply transformations, and return a new DataFrame with computed features.
 
 ## Getting Started
 
@@ -39,6 +66,7 @@ feature-platform/
 
 - Python 3.8+
 - pip
+- `pyspark` (automatically installed with base dependencies)
 - (Optional) Graphviz for generating diagrams
 
 ### Installation
@@ -55,10 +83,51 @@ feature-platform/
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. Install the package in development mode:
+3. Install the package in development mode (includes `pyspark` and other core dependencies):
    ```bash
    pip install -e ".[dev]"
    ```
+   The `[dev]` option also installs development tools like `pytest`, `black`, `isort`, etc.
+
+## Running an Example Spark Job
+
+The `runner/run_spark_job.py` script provides an end-to-end example of using the feature platform components. It demonstrates:
+1.  Initializing `SparkSessionManager`.
+2.  Creating a dummy Delta table locally for demonstration purposes.
+3.  Configuring and using `DatabricksSparkSource` to read this dummy table.
+4.  Applying `FeatureTransformer` implementations (`SimpleAgeCalculator`, `WithGreeting`) to the DataFrame.
+
+To run the example:
+```bash
+python runner/run_spark_job.py
+```
+This job runs entirely in local Spark mode (`local[*]`) and does not require a connection to an actual Databricks workspace. The output will show the transformations being applied to the DataFrame.
+
+## YAML Configuration for Sources (`source/**/*.yaml`)
+
+Data sources can be defined via YAML files (e.g., `source/transaction/v1/mm_transaction_source.yaml`). The Python classes `DatabricksSparkSourceConfig` (for `DatabricksSparkSource`) and `DeltaSQLSourceConfig` (for `DatabricksSQLSource`) are designed to be populated from these YAML files.
+
+**Current State of YAML Processing:**
+
+*   **Directly Used Fields:**
+    *   `name`: Name of the source.
+    *   `entity`: The entity this source relates to.
+    *   `type`: The type of source (e.g., "delta", "sql_table"). Used by `SourceConfig`.
+    *   `location`: The path to the data (e.g., "catalog.schema.table" for Databricks tables, or a file path for local delta tables in the example runner).
+    *   `format`: The format for Spark reads (e.g., "delta", "parquet"). Used by `SparkSourceConfig`.
+    *   `options`: A dictionary of options for Spark reads (e.g., `{"header": "true"}` for CSVs). Used by `SparkSourceConfig`.
+    *   `fields`: A list of field names expected in the source.
+    *   `timestamp_column`: Used by `DeltaSQLSourceConfig` for time-based filtering.
+    *   `partition_filters`: Used by `DeltaSQLSourceConfig` to add filters to SQL queries.
+    *   `databricks_connection`: Can nest `DatabricksConnectionConfig` parameters if needed by `DeltaSQLSourceConfig`, though typically these are picked from environment variables.
+
+*   **Recognized but Not Yet Implemented in Execution Logic:**
+    The current YAML parsing logic (within `SourceConfig` and its derivatives) might recognize additional keys if they are defined within a nested `config:` block in the YAML (e.g., as seen in `source/transaction/v1/mm_transaction_source.yaml` which has `incremental`, `schedule`, `quality_checks`, `notifications`).
+    However, while these keys are loaded into the configuration objects if present, the current Python source classes (`DatabricksSparkSource`, `DatabricksSQLSource`) **do not yet implement functionalities based on these specific keys.** For example:
+    *   `schedule` information is not used to run jobs automatically.
+    *   `quality_checks` are not automatically enforced during data reading.
+    *   `incremental` load logic is not implemented based on these flags.
+    This means that such configurations are parsed but their implied features (like actual job scheduling or data quality enforcement) are future enhancements and not currently active in the execution flow.
 
 ## Usage
 
@@ -159,10 +228,10 @@ Pre-commit hooks are set up to run automatically before each commit. They includ
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### Running Tests
+### Running Tests (Alternative command, consistent with pyproject.toml)
 
 ```bash
-pytest --cov=domain --cov-report=term-missing
+pytest # Uses settings from pyproject.toml, including coverage
 ```
 
 ### Code Style
@@ -174,3 +243,5 @@ This project uses:
 - pytest for testing
 
 Run `black .` and `isort .` before committing code.
+The pre-commit hooks should also handle this.
+```
