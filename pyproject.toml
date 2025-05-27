@@ -45,6 +45,7 @@ dependencies = [
     "databricks-sql-connector>=2.9.0",
     "python-dotenv>=1.0.0",
     "pyspark>=3.4.1",
+    "pydantic>=1.10.0",
 ]
 
 [project.optional-dependencies]
