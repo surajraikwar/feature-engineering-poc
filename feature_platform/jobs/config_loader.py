@@ -232,4 +232,3 @@ if __name__ == "__main__":
                     logging.info(f"Removed dummy config file: {dummy_config_path}")
             except Exception as e_clean:
                 logging.warning(f"Could not check/remove dummy config {dummy_config_path}: {e_clean}")
-```

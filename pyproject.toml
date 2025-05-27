@@ -16,6 +16,12 @@ ensure_newline_before_comments = true
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+# Explicitly specify the package directory and include all Python packages under it
+where = ["."]
+include = ["feature_platform*"]
+exclude = ["tests*"]
+
 [project]
 name = "feature-platform"
 version = "0.1.0"
@@ -43,6 +49,7 @@ dependencies = [
     "pandas>=1.3.0",
     "pyyaml>=6.0",
     "databricks-sql-connector>=2.9.0",
+    "delta-spark>=3.0.0",  # Delta Lake for Spark
     "python-dotenv>=1.0.0",
     "pyspark>=3.4.1",
     "pydantic>=1.10.0",

@@ -242,4 +242,3 @@ output_sink:
         logger.info(f"To run with it: python runner/execute_batch_job.py {default_config_example}")
 
     main()
-```

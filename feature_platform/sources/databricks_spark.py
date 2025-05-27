@@ -22,10 +22,14 @@ class DatabricksSparkSourceConfig(SparkSourceConfig):
     
     # Databricks-specific connection config (can be optional if Spark session is pre-configured)
     connection_config: Optional[DatabricksConnectionConfig] = field(default_factory=DatabricksConnectionConfig)
+    options: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.format.lower() != "delta":
             logger.warning(f"DatabricksSparkSourceConfig is typically used with format 'delta', but found '{self.format}'.")
+        # Ensure options is always a dictionary
+        if self.options is None:
+            self.options = {}
 
 
 class DatabricksSparkSource(SparkSource):

@@ -82,7 +82,29 @@ class SparkSessionManager:
                     logger.info(f"Configuring SparkSession for generic master: {self.master_url}")
                     builder = builder.master(self.master_url)
                 
+                # Configure Spark with Delta Lake and memory settings
+                builder = builder \
+                    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+                    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+                    .config("spark.driver.memory", "2g") \
+                    .config("spark.executor.memory", "2g") \
+                    .config("spark.driver.maxResultSize", "1g") \
+                    .config("spark.network.timeout", "300s") \
+                    .config("spark.sql.shuffle.partitions", "4") \
+                    .config("spark.sql.autoBroadcastJoinThreshold", "-1") \
+                    .config("spark.driver.extraJavaOptions", "-XX:+UseG1GC -XX:MaxGCPauseMillis=400 -XX:G1HeapRegionSize=16m") \
+                    .config("spark.executor.extraJavaOptions", "-XX:+UseG1GC -XX:MaxGCPauseMillis=400 -XX:G1HeapRegionSize=16m")
+                
+                # Initialize Delta Lake with the builder
+                from delta import configure_spark_with_delta_pip
+                builder = configure_spark_with_delta_pip(builder)
+                
+                # Create the Spark session
                 self._spark_session = builder.getOrCreate()
+                
+                # Set log level to WARN to reduce output
+                self._spark_session.sparkContext.setLogLevel("WARN")
+                
                 logger.info(f"SparkSession created successfully. Spark version: {self._spark_session.version}")
                 
                 if self.master_url.startswith("sc://"):

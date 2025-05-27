@@ -6,12 +6,12 @@ description: "Computes key financial features for users from transaction data."
 input_source:
   source_type: "databricks_spark" # Identifies the type of SparkSource to use
   config: # Configuration specific to DatabricksSparkSource
-    location: "jupiter.mm.fact_mm_transaction" # Full path to the Delta table
+    location: "fact_mm_transaction" # Table name only, catalog and schema are in connection_config
     format: "delta"
     # Example: To read a specific version or time snapshot if needed
     # options:
     #   versionAsOf: 3 
-    #   # timestampAsOf: "2023-01-15T00:00:00Z"
+    #   timestampAsOf: "2023-01-15T00:00:00Z"
 
 feature_transformers:
   - name: "UserSpendAggregator" # Corresponds to the UserSpendAggregator class
@@ -59,4 +59,3 @@ output_sink:
 #     path: "/mnt/feature_store/user_financial_features"
 #     mode: "overwrite"
 #     partition_by: ["year", "month"] # Example partitioning
-```

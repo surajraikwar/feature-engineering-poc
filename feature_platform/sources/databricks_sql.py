@@ -68,7 +68,40 @@ class DeltaSQLSourceConfig(SourceConfig): # Renamed from DeltaSourceConfig for c
     """Configuration for a Delta table source accessed via SQL connector."""
     timestamp_column: Optional[str] = None
     partition_filters: Optional[Dict[str, str]] = field(default_factory=dict)
-    # Add a field for the centralized connection config
+    databricks_connection: Optional[DatabricksConnectionConfig] = None 
+    
+    def get_full_table_name(self) -> str:
+        """Get the fully qualified table name."""
+        catalog = f"{self.databricks_connection.catalog}." if self.databricks_connection and self.databricks_connection.catalog else ""
+        schema = f"{self.databricks_connection.schema}." if self.databricks_connection and self.databricks_connection.schema else ""
+        return f"{catalog}{schema}{self.name}"
+    
+    def get_sql_where_clause(
+        self, 
+        start_time: Optional[datetime] = None, 
+        end_time: Optional[datetime] = None
+    ) -> str:
+        """Generate a SQL WHERE clause for time-based filtering."""
+        conditions = []
+        
+        if self.timestamp_column:
+            if start_time:
+                conditions.append(f"{self.timestamp_column} >= '{start_time.isoformat()}'")
+            if end_time:
+                conditions.append(f"{self.timestamp_column} <= '{end_time.isoformat()}'")
+        
+        if self.partition_filters:
+            for col, val in self.partition_filters.items():
+                conditions.append(f"{col} = '{val}'")
+                
+        return " AND ".join(conditions) if conditions else "1=1"
+
+
+@dataclass
+class DeltaSQLSourceConfig(SourceConfig): # Renamed from DeltaSourceConfig for clarity
+    """Configuration for a Delta table source accessed via SQL connector."""
+    timestamp_column: Optional[str] = None
+    partition_filters: Optional[Dict[str, str]] = field(default_factory=dict)
     databricks_connection: Optional[DatabricksConnectionConfig] = None 
     
     def get_full_table_name(self) -> str:
