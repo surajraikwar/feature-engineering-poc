@@ -1,0 +1,41 @@
+# Customer entity definition
+name: customer
+description: Represents a customer in the system
+version: 1.0.0
+is_leaf: false
+primary_key: user_id
+fields:
+  - name: user_id
+    type: string
+    required: true
+    description: Unique identifier for the customer
+  - name: name
+    type: string
+    required: true
+    description: Full name of the customer
+  - name: email
+    type: string
+    required: false
+    description: Customer's email address
+  - name: created_at
+    type: datetime
+    required: true
+    description: When the customer was created
+  - name: updated_at
+    type: datetime
+    required: true
+    description: When the customer was last updated
+
+relations:
+  - to: transaction
+    type: 1:many
+    description: A customer can have multiple transactions
+  - to: email
+    type: 1:1
+    description: A customer has one primary email
+  - to: sms
+    type: 1:1
+    description: A customer has one primary phone number
+  - to: merchant
+    type: many:1
+    description: A customer can be associated with a merchant (for B2B scenarios)

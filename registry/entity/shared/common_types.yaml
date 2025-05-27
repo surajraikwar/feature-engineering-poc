@@ -1,0 +1,36 @@
+# Common field types and definitions that can be reused across entities
+
+# Standard status values
+status_values:
+  - active
+  - inactive
+  - pending
+  - suspended
+  - deleted
+
+# Common field definitions
+fields:
+  - name: created_at
+    type: datetime
+    required: true
+    description: Timestamp when the record was created
+  - name: updated_at
+    type: datetime
+    required: true
+    description: Timestamp when the record was last updated
+  - name: status
+    type: string
+    required: true
+    description: Current status of the record
+    enum: ${status_values}
+  - name: notes
+    type: string
+    required: false
+    description: Additional notes or comments
+
+# Common relation types
+relation_types:
+  - 1:1
+  - 1:many
+  - many:1
+  - many:many

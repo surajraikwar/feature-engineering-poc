@@ -1,0 +1,45 @@
+# Transaction entity definition
+name: transaction
+description: Represents a financial transaction
+version: 1.0.0
+is_leaf: true
+primary_key: transaction_id
+fields:
+  - name: transaction_id
+    type: string
+    required: true
+    description: Unique identifier for the transaction
+  - name: amount
+    type: float
+    required: true
+    description: Transaction amount
+  - name: currency
+    type: string
+    required: true
+    description: Currency code (e.g., USD, EUR)
+  - name: status
+    type: string
+    required: true
+    description: Current status of the transaction
+  - name: transaction_date
+    type: datetime
+    required: true
+    description: When the transaction occurred
+  - name: customer_id
+    type: string
+    required: true
+    description: Reference to the customer
+  - name: merchant_id
+    type: string
+    required: false
+    description: Reference to the merchant (if applicable)
+
+relations:
+  - to: customer
+    type: many:1
+    foreign_key: customer_id
+    description: The customer who made the transaction
+  - to: merchant
+    type: many:1
+    foreign_key: merchant_id
+    description: The merchant where the transaction occurred

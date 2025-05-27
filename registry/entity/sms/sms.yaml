@@ -1,0 +1,35 @@
+# SMS entity definition
+name: sms
+description: Represents a phone number for SMS communication
+version: 1.0.0
+is_leaf: true
+primary_key: sms_id
+fields:
+  - name: sms_id
+    type: string
+    required: true
+    description: Unique identifier for the SMS record
+  - name: phone_number
+    type: string
+    required: true
+    description: The phone number in E.164 format
+  - name: is_primary
+    type: boolean
+    required: true
+    default: false
+    description: Whether this is the primary phone number
+  - name: is_verified
+    type: boolean
+    required: true
+    default: false
+    description: Whether the phone number has been verified
+  - name: customer_id
+    type: string
+    required: true
+    description: Reference to the customer
+
+relations:
+  - to: customer
+    type: many:1
+    foreign_key: customer_id
+    description: The customer who owns this phone number
