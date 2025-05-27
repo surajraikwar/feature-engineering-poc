@@ -8,6 +8,8 @@ class DatabricksConnectionConfig:
     server_hostname: Optional[str] = field(default_factory=lambda: os.getenv("DATABRICKS_SERVER_HOSTNAME"))
     http_path: Optional[str] = field(default_factory=lambda: os.getenv("DATABRICKS_HTTP_PATH")) # For SQL Connector or REST API
     access_token: Optional[str] = field(default_factory=lambda: os.getenv("DATABRICKS_TOKEN"))
+    catalog: Optional[str] = field(default_factory=lambda: os.getenv("DATABRICKS_CATALOG")) # For SQL connector initial context
+    schema: Optional[str] = field(default_factory=lambda: os.getenv("DATABRICKS_SCHEMA"))   # For SQL connector initial context
     # For Spark Connect client or dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().getOrElse(None)
     # and dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().getOrElse(None)
     # For direct cluster submission, these might not be directly used by spark.read, 

@@ -2,16 +2,18 @@ import argparse
 import logging
 import sys
 import os # Ensure os is imported, it's used in main for SPARK_REMOTE and in __main__
+from pathlib import Path
 
 from feature_platform.core.spark import SparkSessionManager
-from feature_platform.jobs.config_loader import load_job_config, JobConfig
+from feature_platform.jobs.config_loader import load_job_config, JobConfig, JobInputSourceConfig
+from feature_platform.core.source_registry import SourceRegistry
+from feature_platform.core.source_definition import SourceDefinition, DatabricksSourceDetailConfig
 
 # --- Source Factory (Basic) ---
-# In a more advanced setup, this would be part of a registry system.
 from feature_platform.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
 from feature_platform.sources.spark_base import SparkSource # For type hinting
 
-# --- Transformer Factory (Basic - to be expanded in next step) ---
+# --- Transformer Factory ---
 from feature_platform.features import (
     UserSpendAggregator,
     UserMonthlyTransactionCounter,
@@ -30,53 +32,111 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__) # Use __name__ for logger hierarchy
 
-# Basic Source Registry
+# Source Registry mapping catalog types to Python classes
 SOURCE_REGISTRY = {
-    "databricks_spark": DatabricksSparkSource
-    # Add other sources here
+    "databricks": DatabricksSparkSource
+    # Add other sources here, e.g. "file_system_csv": FileSystemCsvSource
 }
 
-def get_source_instance(job_config: JobConfig, spark_manager: SparkSessionManager) -> SparkSource:
-    """Instantiates a SparkSource based on job configuration."""
-    source_type = job_config.input_source.source_type
-    source_class = SOURCE_REGISTRY.get(source_type)
+# Initialize SourceRegistry for definitions
+# Assuming 'source/' directory is relative to the execution path of this script
+# or a well-known location. For robustness, this could be an env var or config.
+SOURCE_DEFINITIONS_PATH = Path(os.getenv("FEATURE_PLATFORM_SOURCE_CATALOG_PATH", "source/"))
+if not SOURCE_DEFINITIONS_PATH.exists() or not SOURCE_DEFINITIONS_PATH.is_dir():
+    logger.warning(
+        f"Source catalog directory '{SOURCE_DEFINITIONS_PATH.resolve()}' not found or not a directory. "
+        "Source loading will likely fail. Set FEATURE_PLATFORM_SOURCE_CATALOG_PATH if needed."
+    )
+# Load definitions once at module level, or make it part of a class
+try:
+    SOURCE_CATALOG = SourceRegistry.from_yaml_dir(SOURCE_DEFINITIONS_PATH)
+    logger.info(f"Loaded {len(SOURCE_CATALOG.get_all_source_definitions())} source definitions from {SOURCE_DEFINITIONS_PATH.resolve()}")
+except Exception as e:
+    logger.error(f"Failed to load source catalog from {SOURCE_DEFINITIONS_PATH.resolve()}: {e}", exc_info=True)
+    SOURCE_CATALOG = SourceRegistry() # Empty registry to allow script to run but fail on source access
+
+
+def create_source_from_job_config(job_input_source_config: JobInputSourceConfig, spark_manager: SparkSessionManager) -> SparkSource:
+    """
+    Instantiates a SparkSource based on job configuration by looking up details
+    in the SourceRegistry (loaded from YAML catalog).
+    """
+    source_name = job_input_source_config.name
+    source_version = job_input_source_config.version
+
+    logger.info(f"Fetching source definition for: {source_name} (Version: {source_version or 'latest/default'})")
+    source_def = SOURCE_CATALOG.get_source_definition(name=source_name, version=source_version)
+
+    if not source_def:
+        logger.error(f"Source definition not found for name='{source_name}', version='{source_version}'. "
+                     f"Available sources: {[(s.name, s.version) for s in SOURCE_CATALOG.get_all_source_definitions()]}")
+        raise ValueError(f"Source definition not found: {source_name} v{source_version}")
+
+    source_type_from_catalog = source_def.type
+    source_class = SOURCE_REGISTRY.get(source_type_from_catalog)
 
     if not source_class:
-        logger.error(f"Unsupported source_type: {source_type}. Available types: {list(SOURCE_REGISTRY.keys())}")
-        raise ValueError(f"Unsupported source_type: {source_type}")
+        logger.error(f"Unsupported source type '{source_type_from_catalog}' from catalog for '{source_name}'. "
+                     f"Supported types in runner: {list(SOURCE_REGISTRY.keys())}")
+        raise ValueError(f"Unsupported source type in runner: {source_type_from_catalog}")
 
-    # The config_loader.py uses Pydantic models. job_config.input_source.config is an InputSourceParams model.
-    # DatabricksSparkSourceConfig needs specific fields: name, entity, type, location, format, fields, connection_config.
-    # Some of these are not directly in InputSourceParams or need to be derived.
-    
-    # This is a simplified bridge. A more robust factory would handle this mapping better,
-    # possibly with each SourceConfig class having a from_job_config method.
-    if source_type == "databricks_spark":
-        input_params = job_config.input_source.config # This is InputSourceParams model
+    logger.info(f"Found source type '{source_type_from_catalog}' for '{source_name}', mapping to class {source_class.__name__}")
 
-        # Create DatabricksSparkSourceConfig instance
-        # 'name' and 'entity' are not in InputSourceParams, so we use placeholders or derive them.
-        # 'type' in DatabricksSparkSourceConfig usually refers to the source's own type like 'delta',
-        # while job_config.input_source.source_type is 'databricks_spark'.
-        # 'fields' are also not in InputSourceParams. We can pass None or get from job_config if added there.
+    # --- Prepare configuration for the specific source class ---
+    if source_class == DatabricksSparkSource:
+        if not isinstance(source_def.config, DatabricksSourceDetailConfig):
+            raise TypeError(f"Expected DatabricksSourceDetailConfig for source '{source_name}', but found {type(source_def.config)}")
         
+        db_detail_config: DatabricksSourceDetailConfig = source_def.config
+        
+        location_str: str
+        # Default format, can be overridden if query implies a different handling
+        # (though DatabricksSparkSource currently uses its config.format for spark.read.format)
+        source_format = "delta" 
+
+        if db_detail_config.query:
+            location_str = db_detail_config.query
+            # If location is a query, DatabricksSparkSource needs to handle it appropriately.
+            # It might use spark.sql(location_str) instead of spark.read.format().load().
+            # For now, we still pass a format; "sql" could be a convention.
+            # DatabricksSparkSource's read method might need adjustment if format is "sql".
+            source_format = "sql" # Conventional, DatabricksSparkSource needs to interpret this
+            logger.info(f"Source '{source_name}' is a query. Location set to query string.")
+        elif db_detail_config.table:
+            if not db_detail_config.catalog or not db_detail_config.schema_name:
+                raise ValueError(f"Databricks source '{source_name}' type 'table' requires catalog and schema.")
+            location_str = f"{db_detail_config.catalog}.{db_detail_config.schema_name}.{db_detail_config.table}"
+            logger.info(f"Source '{source_name}' is a table. Location: {location_str}")
+        elif source_def.location: # Fallback to top-level location if provided
+            location_str = source_def.location
+            logger.info(f"Source '{source_name}' using top-level location: {location_str}")
+        else:
+            raise ValueError(f"Cannot determine location for Databricks source '{source_name}'. "
+                             "Need 'query', 'table' (with catalog/schema), or top-level 'location'.")
+
+        # Merge options: source_def options (if any) < job_input_source_config.load_params
+        # Currently SourceDefinition.config (DatabricksSourceDetailConfig) doesn't have generic 'options'
+        # DatabricksSparkSourceConfig expects 'options' for Spark read.
+        # We use job_input_source_config.load_params as these runtime options.
+        read_options = job_input_source_config.load_params or {}
+
         specific_source_config = DatabricksSparkSourceConfig(
-            name=job_config.job_name or "unnamed_source", # Using job_name as a placeholder for source name
-            entity="default_entity", # Placeholder, ideally this comes from job_config more explicitly
-            type=input_params.format, # Assuming format (e.g. "delta") is the 'type' for DatabricksSparkSourceConfig
-            location=input_params.location,
-            format=input_params.format,
-            options=input_params.options,
-            # connection_config: InputSourceParams has connection_config as Optional[Dict].
-            # DatabricksSparkSourceConfig expects Optional[DatabricksConnectionConfig].
-            # For now, passing as dict; DatabricksSparkSourceConfig might handle it or need adjustment.
-            # This is a known area for future refinement (config object hydration).
-            connection_config=input_params.connection_config # type: ignore 
+            name=source_def.name,
+            entity=source_def.entity,
+            # 'type' for SparkSourceConfig often refers to its data type (delta, parquet)
+            # For Databricks, this is typically 'delta', but could be other if location is a path to parquet etc.
+            # source_def.type is "databricks". We use 'source_format' determined above.
+            type=source_format, 
+            location=location_str,
+            format=source_format, # e.g. "delta", or "sql" if query
+            options=read_options, # These are runtime read options from job config
+            fields=source_def.fields or [], # Pass field definitions from catalog
+            connection_config=None # Let DatabricksSparkSource use its default (env-based)
         )
         return DatabricksSparkSource(config=specific_source_config, spark_manager=spark_manager)
     else:
-        # Fallback for other types - this part needs proper factory logic
-        raise NotImplementedError(f"Source factory logic for {source_type} not fully implemented.")
+        # Fallback for other types - needs proper factory logic if more sources are added
+        raise NotImplementedError(f"Source factory logic for {source_type_from_catalog} not fully implemented.")
 
 
 def main():
@@ -114,12 +174,17 @@ def main():
                 logger.info(f"Running in mode: {active_spark_session.conf.get('spark.master')}")
 
             # 1. Instantiate and read from Input Source
-            logger.info(f"Initializing input source: {job_config.input_source.source_type}")
-            # Pass the 'manager' (SparkSessionManager instance) to get_source_instance.
-            source_instance = get_source_instance(job_config, manager) 
+            logger.info(f"Initializing input source: {job_config.input_source.name} (Version: {job_config.input_source.version})")
+            source_instance = create_source_from_job_config(job_config.input_source, manager)
             
-            logger.info(f"Reading data from source: {job_config.input_source.config.location}")
-            df = source_instance.read()
+            # The read() method of DatabricksSparkSource already handles merging its config.options
+            # with any runtime read_options passed to it. Since we've put job_input_source_config.load_params
+            # into the config.options of the DatabricksSparkSourceConfig, we don't need to pass them again here.
+            # However, if DatabricksSparkSource.read() was designed to *only* take read_options at runtime,
+            # then we'd pass them: df = source_instance.read(read_options=job_config.input_source.load_params)
+            # Given current DatabricksSparkSource, options are already in its config.
+            logger.info(f"Reading data from source: {source_instance.config.name} (Location: {source_instance.config.location})")
+            df = source_instance.read() 
             logger.info(f"Successfully read data. DataFrame schema:")
             df.printSchema()
             if logger.isEnabledFor(logging.DEBUG): 
@@ -235,9 +300,11 @@ output_sink:
 """)
             logger.info(f"Created '{minimal_config_path}'. You can try running with this for a basic syntax check:")
             logger.info(f"Example: python runner/execute_batch_job.py {minimal_config_path}")
-        else:
-            logger.info(f"Minimal config '{minimal_config_path}' already exists or its directory couldn't be made.")
-    else:
+        elif os.path.exists(minimal_config_path): # Corrected condition: if it exists and was not just created
+             logger.info(f"Minimal config '{minimal_config_path}' already exists.")
+        # No 'else' needed if dir couldn't be made, as that's logged above.
+
+    elif os.path.exists(default_config_example): # Added check for existence before logging
         logger.info(f"Found default example config: {default_config_example}")
         logger.info(f"To run with it: python runner/execute_batch_job.py {default_config_example}")
 

@@ -71,6 +71,30 @@ class DatabricksSparkSource(SparkSource):
         
         try:
             df = spark.read.format(read_format).options(**merged_options).load(table_location)
+            
+            # --- Schema Validation Step ---
+            if self.config.fields: # Check if fields metadata is provided
+                actual_columns = set(df.columns)
+                expected_columns = {field_dict['name'] for field_dict in self.config.fields}
+
+                missing_in_df = expected_columns - actual_columns
+                if missing_in_df:
+                    error_messages = [f"Missing expected column in DataFrame: '{col}'" for col in missing_in_df]
+                    for msg in error_messages:
+                        logger.error(msg)
+                    raise ValueError(f"Schema validation failed. Missing columns: {', '.join(sorted(list(missing_in_df)))}")
+
+                extra_in_df = actual_columns - expected_columns
+                if extra_in_df:
+                    for col in sorted(list(extra_in_df)):
+                        logger.warning(f"DataFrame contains an extra column not defined in source catalog fields: '{col}'")
+                
+                # Optional: Type validation could be added here in the future.
+                # For now, only column name presence is validated.
+                logger.info("Schema validation (column names) completed.")
+            else:
+                logger.info("No field definitions provided in source config; skipping schema validation.")
+            
             return df
         except AnalysisException as e:
             logger.error(f"Failed to read from Databricks location '{table_location}': {e}")

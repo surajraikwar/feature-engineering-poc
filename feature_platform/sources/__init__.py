@@ -1,4 +1,8 @@
-# feature_platform/sources/__init__.py
+"""
+The feature_platform.sources module offers abstractions and concrete
+implementations for various data sources, such as Databricks Spark tables,
+Databricks SQL endpoints, and other potential data backends.
+"""
 from .base import Source, SourceConfig
 from .spark_base import SparkSource, SparkSourceConfig
 from .databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig

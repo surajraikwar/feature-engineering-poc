@@ -8,11 +8,14 @@ from feature_platform.core.spark import SparkSessionManager # Ensure this import
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame as SparkDataFrame # For type hinting
 
+from feature_platform.core.source_definition import FieldDefinition # For type hinting if needed, not directly used here yet
+
 @dataclass
 class SparkSourceConfig(SourceConfig):
     """Base configuration for a Spark-based data source."""
-    # Add any common Spark-specific config options here if needed in the future
-    # For now, it's structurally similar to SourceConfig
+    # Overriding 'fields' from SourceConfig to allow for structured field definitions (list of dicts)
+    # instead of just a list of strings. This aligns with SourceDefinition.fields.
+    fields: Optional[List[Dict[str, Any]]] = None # Was List[str] in parent.
     format: str = "delta" # Default to delta, can be overridden (e.g. "parquet", "csv")
     options: Dict[str, Any] = field(default_factory=dict) # Spark read options
 

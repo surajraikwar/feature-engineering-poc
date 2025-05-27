@@ -1,4 +1,8 @@
-# feature_platform/features/__init__.py
+"""
+The feature_platform.features module provides tools and implementations for
+feature transformations, including base transformer classes, specific feature
+transformer logic, and factories for instantiating transformers.
+"""
 from .transform import FeatureTransformer, SimpleAgeCalculator, WithGreeting
 from .financial_transformers import (
     UserSpendAggregator, 

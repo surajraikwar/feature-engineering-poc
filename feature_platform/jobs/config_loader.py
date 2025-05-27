@@ -9,16 +9,10 @@ class BaseConfigModel(BaseModel):
     class Config:
         extra = Extra.forbid # Disallow extra fields not defined in the model
 
-class InputSourceParams(BaseConfigModel):
-    location: str
-    format: str = "delta"
-    options: Optional[Dict[str, Any]] = None
-    # Allow specific connection override, though often global Databricks env vars are used
-    connection_config: Optional[Dict[str, Any]] = None 
-
-class InputSourceConfig(BaseConfigModel):
-    source_type: str = "databricks_spark" # Default, but can be specified
-    config: InputSourceParams
+class JobInputSourceConfig(BaseConfigModel):
+    name: str # Name of the source from the SourceRegistry
+    version: Optional[str] = None # Version of the source from the SourceRegistry
+    load_params: Optional[Dict[str, Any]] = None # Job-specific load parameters (e.g., date ranges, filters)
 
 class FeatureTransformerParams(BaseConfigModel):
     # Pydantic allows extra fields if not 'forbid' in Config, useful for varying transformer params
@@ -57,7 +51,7 @@ class OutputSinkConfig(BaseConfigModel):
 class JobConfig(BaseConfigModel):
     job_name: Optional[str] = "Untitled Job"
     description: Optional[str] = ""
-    input_source: InputSourceConfig
+    input_source: JobInputSourceConfig # Updated to use the new JobInputSourceConfig
     feature_transformers: List[FeatureTransformerConfig] = Field(default_factory=list)
     output_sink: OutputSinkConfig = Field(default_factory=OutputSinkConfig)
 
@@ -148,10 +142,9 @@ if __name__ == "__main__":
         dummy_yaml_content = {
             "job_name": "dummy_test_job",
             "input_source": {
-                "source_type": "databricks_spark",
-                "config": {
-                    "location": "test.catalog.test_table"
-                }
+                "name": "my_dummy_source",
+                "version": "v1",
+                "load_params": {"filter_date": "2023-01-01"}
             },
             "feature_transformers": [
                 {
@@ -172,8 +165,9 @@ if __name__ == "__main__":
     try:
         job_config = load_job_config(dummy_config_path)
         logging.info(f"Loaded job: {job_config.job_name}")
-        logging.info(f"Input source type: {job_config.input_source.source_type}")
-        logging.info(f"Input location: {job_config.input_source.config.location}")
+        logging.info(f"Input source name: {job_config.input_source.name}")
+        logging.info(f"Input source version: {job_config.input_source.version}")
+        logging.info(f"Input source load_params: {job_config.input_source.load_params}")
         if job_config.feature_transformers:
             logging.info(f"First transformer name: {job_config.feature_transformers[0].name}")
             # params is not Optional, so it should always exist.
@@ -192,15 +186,12 @@ if __name__ == "__main__":
     bad_config_path = os.path.join(bad_config_dir, bad_config_base_name)
 
     # This content will cause a validation error because 'params' is missing in 'feature_transformers[0]'
-    # and 'location' is missing in 'input_source.config'
+    # and 'name' is missing in 'input_source'
     bad_yaml_content_missing_required_fields = {
          "job_name": "bad_job_missing_fields",
          "input_source": {
-             "source_type": "databricks_spark",
-             "config": {
-                 # "location": "test.table" # Location is missing
-                 "format": "delta"
-             }
+             # "name": "my_source" # Name is missing
+             "version": "v1.0"
          },
          "feature_transformers": [
              {
