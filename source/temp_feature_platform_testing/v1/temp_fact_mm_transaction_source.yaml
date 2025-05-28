@@ -1,0 +1,118 @@
+name: temp_fact_mm_transaction_source
+description: Source for temporary Money Movement transaction data for feature platform testing.
+version: v1
+type: databricks
+entity: transaction
+location: temp.feature_platform_testing.temp_fact_mm_transaction
+config:
+  format: delta
+fields:
+  - name: flag
+    type: string
+    description: Flag value.
+  - name: num
+    type: integer
+    description: Numeric value.
+  - name: mmuuid
+    type: string
+    description: Money Movement UUID.
+    required: true
+  - name: user_id
+    type: string
+    description: User identifier.
+    required: true
+  - name: transactiondatetime
+    type: timestamp
+    description: Date and time of the transaction.
+  - name: transactionstatus
+    type: string
+    description: Status of the transaction (e.g., SUCCESS).
+  - name: jupiterfinegraincategory
+    type: string
+    description: Fine-grained category by Jupiter.
+  - name: jupiter_coarsegrain_category
+    type: string
+    description: Coarse-grained category by Jupiter.
+  - name: usercategory
+    type: string
+    description: Category defined by the user.
+  - name: appcategory
+    type: string
+    description: Category defined by the application.
+  - name: bankname
+    type: string
+    description: Name of the bank.
+  - name: transactionchannel
+    type: string
+    description: Channel through which the transaction was made (e.g., OFF_APP_UPI).
+  - name: transactiontype
+    type: string
+    description: Type of transaction (e.g., PAY_RECEIVED).
+  - name: payer
+    type: string
+    description: Payer details or name.
+  - name: payee
+    type: string
+    description: Payee details or name.
+  - name: mcccode
+    type: string
+    description: Merchant Category Code.
+  - name: merchant
+    type: string
+    description: Merchant name or identifier.
+  - name: product
+    type: string
+    description: Product associated with the transaction.
+  - name: payeeparticulars
+    type: string
+    description: Particulars of the payee, often a JSON string.
+  - name: payerparticulars
+    type: string
+    description: Particulars of the payer, often a JSON string.
+  - name: adaparticulars
+    type: string
+    description: Adap particulars, often a JSON string.
+  - name: creditdebitindicator
+    type: string
+    description: Indicates if the transaction is a credit or debit.
+  - name: jupiter_transaction_id
+    type: string
+    description: Jupiter's internal transaction ID.
+  - name: transactionamount
+    type: double
+    description: Amount of the transaction.
+  - name: reconstatus
+    type: string
+    description: Reconciliation status.
+  - name: accountid
+    type: string
+    description: Account ID associated with the transaction.
+  - name: publishtime
+    type: timestamp
+    description: Time when the transaction was published.
+  - name: tags
+    type: string
+    description: Tags associated with the transaction (e.g., "[]").
+  - name: useractivity_hasupdatedcategory
+    type: boolean
+    description: Flag indicating if user activity updated the category.
+  - name: categorymetadata_source
+    type: string
+    description: Source of the category metadata.
+  - name: counterpartymetadata_source
+    type: string
+    description: Source of the counterparty metadata.
+  - name: rn
+    type: integer
+    description: Row number or similar numeric field.
+  - name: eccparticulars
+    type: string
+    description: ECC particulars.
+  - name: mm_enriched
+    type: integer
+    description: MM enriched flag or version.
+
+created_at: "2023-10-27T10:30:00Z" # To be replaced by worker
+created_by: "Jules AI Agent"
+updated_at: "2023-10-27T10:30:00Z" # To be replaced by worker
+updated_by: "Jules AI Agent"

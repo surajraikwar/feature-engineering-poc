@@ -133,12 +133,12 @@ class SparkSessionManager:
 
                 except Exception as e:
                     logger.error(f"Failed to create SparkSession: {e}")
-                logger.error(
-                    "If using Databricks Connect, ensure your local environment is correctly "
-                    "configured (e.g., `databricks-connect configure`, correct PySpark version, "
-                    "and necessary environment variables like DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_CLUSTER_ID)."
-                )
-                raise
+                    logger.error(
+                        "If using Databricks Connect, ensure your local environment is correctly "
+                        "configured (e.g., `databricks-connect configure`, correct PySpark version, "
+                        "and necessary environment variables like DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_CLUSTER_ID)."
+                    )
+                    raise
         return self._spark_session
 
     def stop_session(self) -> None:

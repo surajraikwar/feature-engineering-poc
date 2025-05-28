@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Optional, List
 
 from domain.sources.base import Source, SourceConfig
 from domain.core.spark import SparkSessionManager # Ensure this import works
