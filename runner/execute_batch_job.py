@@ -139,6 +139,95 @@ def create_source_from_job_config(job_input_source_config: JobInputSourceConfig,
         raise NotImplementedError(f"Source factory logic for {source_type_from_catalog} not fully implemented.")
 
 
+def run_feature_platform_job(job_config: JobConfig, spark_manager: SparkSessionManager):
+    """
+    Executes the core logic of a feature platform job.
+
+    Args:
+        job_config: The loaded and validated job configuration object.
+        spark_manager: The SparkSessionManager instance to use for Spark operations.
+                       The Spark session should be active when this function is called
+                       (e.g., within a `with spark_manager as active_session:` block).
+    """
+    active_spark_session = spark_manager.get_session() # Get the active session
+    logger.info(f"Spark session obtained for job '{job_config.job_name}'. Version: {active_spark_session.version}")
+    if active_spark_session.conf.get("spark.master").startswith("sc://"): # Check if using Databricks Connect
+        logger.info("Running in Databricks Connect mode.")
+    elif os.getenv("DATABRICKS_RUNTIME_VERSION"): # Check if in Databricks notebook/job environment
+        logger.info(f"Running in Databricks Runtime: {os.getenv('DATABRICKS_RUNTIME_VERSION')}")
+    else:
+        logger.info(f"Running in mode: {active_spark_session.conf.get('spark.master')}")
+
+    # 1. Instantiate and read from Input Source
+    logger.info(f"Initializing input source: {job_config.input_source.name} (Version: {job_config.input_source.version})")
+    source_instance = create_source_from_job_config(job_config.input_source, spark_manager)
+    
+    logger.info(f"Reading data from source: {source_instance.config.name} (Location: {source_instance.config.location})")
+    df = source_instance.read() 
+    logger.info(f"Successfully read data. DataFrame schema:")
+    df.printSchema()
+    if logger.isEnabledFor(logging.DEBUG): 
+        df.show(5, truncate=False)
+
+    # 2. Apply Feature Transformers
+    if not job_config.feature_transformers:
+        logger.info("No feature transformers specified in the configuration.")
+    else:
+        logger.info("Applying feature transformers...")
+        for tf_config in job_config.feature_transformers:
+            tf_name = tf_config.name
+            tf_params_dict = tf_config.params.dict()
+            
+            try:
+                transformer_instance = get_transformer(name=tf_name, params=tf_params_dict)
+                logger.info(f"Applying transformer: {tf_name}")
+                df = transformer_instance.apply(df)
+                logger.info(f"Successfully applied {tf_name}. New schema:")
+                df.printSchema()
+                if logger.isEnabledFor(logging.DEBUG):
+                     df.show(5, truncate=False)
+            except Exception as e:
+                logger.error(f"Error processing transformer {tf_name} with params {tf_params_dict}: {e}", exc_info=True)
+                raise # Re-raise to be caught by the caller
+
+    # 3. Handle Output Sink
+    logger.info(f"Handling output sink: {job_config.output_sink.sink_type}")
+    sink_type = job_config.output_sink.sink_type
+    sink_config = job_config.output_sink.config
+
+    if sink_type == "display":
+        logger.info(f"Displaying DataFrame (first {sink_config.num_rows} rows):")
+        df.show(sink_config.num_rows, truncate=sink_config.truncate)
+    elif sink_type in ["overwrite_delta", "append_delta", "delta_table"]:
+        if not sink_config.path:
+            logger.error("Output sink type 'delta_table' requires 'path' in sink config.")
+            raise ValueError("Missing path for delta_table sink.")
+        mode = sink_config.mode
+        if sink_type == "overwrite_delta": mode = "overwrite"
+        elif sink_type == "append_delta": mode = "append"
+        
+        logger.info(f"Writing DataFrame to Delta table: {sink_config.path}, mode: {mode}")
+        df.write.format("delta").mode(mode).options(**(sink_config.options or {})).save(sink_config.path)
+        logger.info(f"Successfully wrote to Delta table: {sink_config.path}")
+    elif sink_type in ["overwrite_parquet", "append_parquet", "parquet_files"]:
+        if not sink_config.path:
+            logger.error("Output sink type 'parquet_files' requires 'path' in sink config.")
+            raise ValueError("Missing path for parquet_files sink.")
+        mode = sink_config.mode
+        if sink_type == "overwrite_parquet": mode = "overwrite"
+        elif sink_type == "append_parquet": mode = "append"
+
+        writer = df.write.mode(mode).options(**(sink_config.options or {}))
+        if sink_config.partition_by:
+            writer = writer.partitionBy(*sink_config.partition_by)
+        writer.parquet(sink_config.path)
+        logger.info(f"Successfully wrote to Parquet files at: {sink_config.path}")
+    else:
+        logger.warning(f"Unsupported sink_type: {sink_type}. DataFrame not written.")
+
+    logger.info(f"Job '{job_config.job_name}' core logic completed successfully.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Execute a feature engineering batch job.")
     parser.add_argument(
@@ -153,111 +242,30 @@ def main():
         job_config = load_job_config(args.config_path)
     except Exception as e:
         logger.error(f"Failed to load or validate job configuration: {e}", exc_info=True)
-        sys.exit(1)
+        sys.exit(1) # Exit if config loading fails
 
-    logger.info(f"Starting job: {job_config.job_name}")
+    logger.info(f"Starting job wrapper for: {job_config.job_name}")
     logger.debug(f"Job configuration details: {job_config.dict()}")
 
     spark_master_url = os.getenv("SPARK_REMOTE") 
-    
-    # The SparkSessionManager instance is 'manager'.
-    # The 'with manager as active_spark_session:' block ensures get_session() is called at the start
-    # and stop_session() is called at the end. 'active_spark_session' is the SparkSession object.
     manager = SparkSessionManager(app_name=job_config.job_name or "FeaturePlatformJob", master_url=spark_master_url)
     
-    with manager as active_spark_session:
-        try:
-            logger.info(f"Spark session initialized. Version: {active_spark_session.version}")
-            if active_spark_session.conf.get("spark.master").startswith("sc://"):
-                logger.info("Running in Databricks Connect mode.")
-            else:
-                logger.info(f"Running in mode: {active_spark_session.conf.get('spark.master')}")
-
-            # 1. Instantiate and read from Input Source
-            logger.info(f"Initializing input source: {job_config.input_source.name} (Version: {job_config.input_source.version})")
-            source_instance = create_source_from_job_config(job_config.input_source, manager)
-            
-            # The read() method of DatabricksSparkSource already handles merging its config.options
-            # with any runtime read_options passed to it. Since we've put job_input_source_config.load_params
-            # into the config.options of the DatabricksSparkSourceConfig, we don't need to pass them again here.
-            # However, if DatabricksSparkSource.read() was designed to *only* take read_options at runtime,
-            # then we'd pass them: df = source_instance.read(read_options=job_config.input_source.load_params)
-            # Given current DatabricksSparkSource, options are already in its config.
-            logger.info(f"Reading data from source: {source_instance.config.name} (Location: {source_instance.config.location})")
-            df = source_instance.read() 
-            logger.info(f"Successfully read data. DataFrame schema:")
-            df.printSchema()
-            if logger.isEnabledFor(logging.DEBUG): 
-                df.show(5, truncate=False)
-
-            # 2. Apply Feature Transformers
-            if not job_config.feature_transformers:
-                logger.info("No feature transformers specified in the configuration.")
-            else:
-                logger.info("Applying feature transformers...")
-                for tf_config in job_config.feature_transformers:
-                    tf_name = tf_config.name
-                    # tf_config.params is a FeatureTransformerParams Pydantic model
-                    tf_params_dict = tf_config.params.dict() # Get params as dict
-                    
-                    try:
-                        # Use the new factory function
-                        transformer_instance = get_transformer(name=tf_name, params=tf_params_dict)
-                        # get_transformer already logs initialization
-                        logger.info(f"Applying transformer: {tf_name}")
-                        df = transformer_instance.apply(df)
-                        logger.info(f"Successfully applied {tf_name}. New schema:")
-                        df.printSchema()
-                        if logger.isEnabledFor(logging.DEBUG):
-                             df.show(5, truncate=False)
-                    except Exception as e: # get_transformer can raise ValueError, or apply() can raise others
-                        logger.error(f"Error processing transformer {tf_name} with params {tf_params_dict}: {e}", exc_info=True)
-                        raise # Re-raise to be caught by the outer try-except block for job failure
-
-            # 3. Handle Output Sink
-            logger.info(f"Handling output sink: {job_config.output_sink.sink_type}")
-            sink_type = job_config.output_sink.sink_type
-            sink_config = job_config.output_sink.config # This is OutputSinkParams model
-
-            if sink_type == "display":
-                logger.info(f"Displaying DataFrame (first {sink_config.num_rows} rows):")
-                df.show(sink_config.num_rows, truncate=sink_config.truncate)
-            elif sink_type in ["overwrite_delta", "append_delta", "delta_table"]: # "delta_table" as generic
-                if not sink_config.path:
-                    logger.error("Output sink type 'delta_table' requires 'path' in sink config.")
-                    raise ValueError("Missing path for delta_table sink.")
-                # Determine mode: if "overwrite_delta" or "append_delta" is used, it dictates mode.
-                # Otherwise, use sink_config.mode (which defaults to "overwrite").
-                mode = sink_config.mode
-                if sink_type == "overwrite_delta": mode = "overwrite"
-                elif sink_type == "append_delta": mode = "append"
-                
-                logger.info(f"Writing DataFrame to Delta table: {sink_config.path}, mode: {mode}")
-                df.write.format("delta").mode(mode).options(**(sink_config.options or {})).save(sink_config.path)
-                logger.info(f"Successfully wrote to Delta table: {sink_config.path}")
-            elif sink_type in ["overwrite_parquet", "append_parquet", "parquet_files"]: # "parquet_files" as generic
-                if not sink_config.path:
-                    logger.error("Output sink type 'parquet_files' requires 'path' in sink config.")
-                    raise ValueError("Missing path for parquet_files sink.")
-                mode = sink_config.mode
-                if sink_type == "overwrite_parquet": mode = "overwrite"
-                elif sink_type == "append_parquet": mode = "append"
-
-                writer = df.write.mode(mode).options(**(sink_config.options or {}))
-                if sink_config.partition_by:
-                    writer = writer.partitionBy(*sink_config.partition_by)
-                writer.parquet(sink_config.path)
-                logger.info(f"Successfully wrote to Parquet files at: {sink_config.path}")
-            else:
-                logger.warning(f"Unsupported sink_type: {sink_type}. DataFrame not written.")
-
-            logger.info(f"Job '{job_config.job_name}' completed successfully.")
-            # No explicit sys.exit(0) needed, will exit with 0 if no unhandled exceptions.
-
-        except Exception as e:
-            logger.error(f"An error occurred during job execution for '{job_config.job_name}': {e}", exc_info=True)
-            sys.exit(1) # Exit with error code
-        # The SparkSessionManager's __exit__ (from context manager 'manager') will stop the session.
+    try:
+        with manager as active_spark_session: # Ensures session is started and stopped
+            # The active_spark_session object itself isn't explicitly passed to run_feature_platform_job
+            # as the manager instance is passed, and components within run_feature_platform_job
+            # will call manager.get_session() to get the active session.
+            logger.info(f"SparkSessionManager active, proceeding with job: {job_config.job_name}")
+            run_feature_platform_job(job_config, manager)
+        
+        logger.info(f"Job '{job_config.job_name}' and Spark session management completed successfully.")
+        sys.exit(0) # Successful execution
+    except Exception as e:
+        # Errors from run_feature_platform_job will be caught here
+        logger.error(f"An error occurred during the execution of job '{job_config.job_name}': {e}", exc_info=True)
+        sys.exit(1) # Exit with error code
+    # SparkSessionManager's __exit__ ensures stop_session is called, even if errors occur within the 'with' block
+    # that are not caught by the inner try-except of run_feature_platform_job (if it had one, currently it re-raises).
 
 if __name__ == "__main__":
     # Example: python runner/execute_batch_job.py configs/jobs/sample_financial_features_job.yaml

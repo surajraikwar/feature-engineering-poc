@@ -120,19 +120,23 @@ These are Python classes that know how to read data based on a `SourceDefinition
 
 ## Running Batch Jobs (Configuration-Driven)
 
-The primary way to execute feature engineering tasks is through the `runner/execute_batch_job.py` script. This script takes a YAML configuration file that defines the job.
+Feature engineering tasks are primarily executed via configuration-driven scripts.
+- For local execution or using Databricks Connect, the main entry point is `runner/execute_batch_job.py`.
+- For running tasks natively as Databricks jobs, the dedicated entry point is `runner/databricks_job_main.py`.
 
-**Command:**
+Both scripts take a YAML configuration file that defines the entire job.
+
+**Command (for local/Databricks Connect):**
 ```bash
 python runner/execute_batch_job.py <path_to_job_config_yaml>
 ```
-For example, to run the sample financial features job:
+For example, to run the sample financial features job locally:
 ```bash
 python runner/execute_batch_job.py configs/jobs/sample_financial_features_job.yaml
 ```
 
-**Functionality:**
-The `execute_batch_job.py` script:
+**Functionality (`execute_batch_job.py` and `databricks_job_main.py` via `run_feature_platform_job`):**
+The core job execution logic:
 1.  Loads the job configuration YAML.
 2.  Uses the `SourceRegistry` (initialized from `source/`) to look up and instantiate the data source specified in the job's `input_source` section. This means the details of the source (like table names, paths, connection info) are fetched from the YAML files in the `source/` catalog.
 3.  Applies the sequence of feature transformers defined in the job.
@@ -141,6 +145,18 @@ The `execute_batch_job.py` script:
 **Execution Environment:**
 *   **Local Spark:** If `SPARK_REMOTE` environment variable is not set, runs using a local Spark session (`local[*]`).
 *   **Databricks Connect:** Set `DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `DATABRICKS_CLUSTER_ID`, and `SPARK_REMOTE` to run against a Databricks cluster. The `SparkSessionManager` uses these.
+
+### Running on Databricks
+
+For detailed instructions on how to set up and run the Feature Platform as a Databricks job using `runner/databricks_job_main.py`, including code deployment, cluster configuration, and job task setup, please see the [Databricks Deployment Guide](DATABRICKS_GUIDE.md).
+
+### Source Catalog Path Configuration
+
+The path to the Source Catalog directory (containing all `source/**/*.yaml` definitions) can be configured using an environment variable. This allows flexibility in locating your source definitions, especially in different deployment environments.
+
+*   **`FP_SOURCE_CATALOG_PATH`**: Specifies the path to your source catalog directory.
+    *   If this environment variable is not set, the system defaults to looking for a directory named `source/` relative to the current working directory of the script.
+    *   Both `runner/execute_batch_job.py` and `runner/databricks_job_main.py` (which sets this variable for the underlying logic if provided as a job parameter) respect this environment variable.
 
 ## Job Configuration (YAML)
 
