@@ -636,3 +636,5 @@ local_*.yaml
 # Virtual environment
 venv/
 ENV/
+
+feature-platform.code-workspace

@@ -4,14 +4,9 @@ job_name: "financial_features_extraction_v1"
 description: "Computes key financial features for users from transaction data."
 
 input_source:
-  source_type: "databricks_spark" # Identifies the type of SparkSource to use
-  config: # Configuration specific to DatabricksSparkSource
-    location: "fact_mm_transaction" # Table name only, catalog and schema are in connection_config
-    format: "delta"
-    # Example: To read a specific version or time snapshot if needed
-    # options:
-    #   versionAsOf: 3 
-    #   timestampAsOf: "2023-01-15T00:00:00Z"
+  name: "mm_transaction_source"
+  version: "v1.0.0"
+  # load_params: {} # Optional, can be omitted if no job-specific params for now
 
 feature_transformers:
   - name: "UserSpendAggregator" # Corresponds to the UserSpendAggregator class

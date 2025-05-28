@@ -7,9 +7,9 @@ from typing import Dict, Any
 import pytest
 from unittest.mock import MagicMock, patch
 
-from feature_platform.core.entity import Entity, Relation
-from feature_platform.core.registry import EntityRegistry
-from feature_platform.sources.base import SourceConfig, SourceType
+from domain.core.entity import Entity, Relation
+from domain.core.registry import EntityRegistry
+from domain.sources.base import SourceConfig, SourceType
 
 
 @pytest.fixture

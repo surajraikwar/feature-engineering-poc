@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import yaml
 
-from feature_platform.core.entity import Entity, Relation
-from feature_platform.core.registry import EntityRegistry
+from domain.core.entity import Entity, Relation
+from domain.core.registry import EntityRegistry
 
 
 def test_add_and_get_entity():

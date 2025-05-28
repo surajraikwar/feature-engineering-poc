@@ -2,17 +2,20 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict
 
-from feature_platform.sources.base import Source, SourceConfig
-from feature_platform.core.spark import SparkSessionManager # Ensure this import works
+from domain.sources.base import Source, SourceConfig
+from domain.core.spark import SparkSessionManager # Ensure this import works
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame as SparkDataFrame # For type hinting
 
+from domain.core.source_definition import FieldDefinition # For type hinting if needed, not directly used here yet
+
 @dataclass
 class SparkSourceConfig(SourceConfig):
     """Base configuration for a Spark-based data source."""
-    # Add any common Spark-specific config options here if needed in the future
-    # For now, it's structurally similar to SourceConfig
+    # Overriding 'fields' from SourceConfig to allow for structured field definitions (list of dicts)
+    # instead of just a list of strings. This aligns with SourceDefinition.fields.
+    fields: Optional[List[Dict[str, Any]]] = None # Was List[str] in parent.
     format: str = "delta" # Default to delta, can be overridden (e.g. "parquet", "csv")
     options: Dict[str, Any] = field(default_factory=dict) # Spark read options
 
@@ -22,7 +25,7 @@ class SparkSource(Source["SparkDataFrame"]):
     These sources are expected to return Spark DataFrames.
     """
 
-    def __init__(self, config: SparkSourceConfig, spark_manager: SparkSessionManager):
+    def __init__(self, config: SparkSourceConfig, spark_manager: SparkSessionManager): # SparkSessionManager from domain.core.spark
         super().__init__(config) # config here is SparkSourceConfig
         self.spark_manager = spark_manager
         # Ensure config is of type SparkSourceConfig for type checkers if needed
