@@ -49,55 +49,97 @@ The following diagram illustrates the high-level architecture and data flow with
 
 ```mermaid
 graph TD
-    subgraph "User Interaction & Job Definition"
-        U[User/Trigger] -->|Executes with| JYAML["Job Configuration YAML\n(configs/jobs/*.yaml)\nDefines: input_source (name, version, load_params),\ntransformers, output_sink"];
-    end
 
-    subgraph "Job Execution Core"
-        JRUNNER["Main Job Runner\n(runner/execute_batch_job.py)"]
-        SPARKMAN["SparkSessionManager\n(feature_platform/core/spark.py)"];
-    end
+subgraph "User Interaction & Job Definition"
 
-    subgraph "Source Catalog & Definition"
-        SRCREG["SourceRegistry\n(feature_platform/core/source_registry.py)"];
-        SRCCATYAML["Source Catalog YAMLs\n(source/**/*.yaml)\nDefines: connection details, format,\nschema (fields), entity, type"];
-        SRCDEFMODEL["SourceDefinition Pydantic Models\n(feature_platform/core/source_definition.py)"];
-    end
+U[User/Trigger] -->|Executes with| JYAML["Job Configuration YAML\n(configs/jobs/*.yaml)\nDefines: input_source (name, version, load_params),\ntransformers, output_sink"];
 
-    subgraph "Data Handling & Transformation"
-        DATASRC["Data Source Instance\n(e.g., DatabricksSparkSource\nfeature_platform/sources/*)"];
-        DATA["Data\n(e.g., Spark DataFrame)"];
-        TFACTORY["Transformer Factory\n(get_transformer\nfeature_platform/features/factory.py)"];
-        TRANSFORMERS["FeatureTransformer Instances\n(feature_platform/features/*)"];
-        OUTSINK["Output Sink\n(e.g., Delta Table, Display)"];
-    end
+end
 
-    JYAML -->|Loaded by| JRUNNER;
-    
-    JRUNNER -->|1. Gets Source Def for\n(input_source.name, input_source.version)| SRCREG;
-    SRCREG -->|Loads & Parses| SRCCATYAML;
-    SRCCATYAML -->|Validated by & Parsed into| SRCDEFMODEL;
-    SRCDEFMODEL -->|Structure for| SRCREG;
-    SRCREG -->|Returns SourceDefinition| JRUNNER;
-    
-    JRUNNER -->|2. Initializes with SourceDefinition\n& job_input_source.load_params| DATASRC;
-    DATASRC -->|Uses| SPARKMAN;
-    SPARKMAN -->|Provides SparkSession| DATASRC;
-    DATASRC -->|3. Reads (influenced by load_params)| DATA;
-    
-    JRUNNER -->|4. Gets Transformers| TFACTORY;
-    TFACTORY -->|Creates| TRANSFORMERS;
-    TRANSFORMERS -->|5. Apply to| DATA;
-    
-    DATA -->|6. Written to| OUTSINK;
+  
 
-    classDef component fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef data fill:#lightgrey,stroke:#333,stroke-width:1px;
-    classDef process fill:#lightblue,stroke:#333,stroke-width:2px;
+subgraph "Job Execution Core"
 
-    class U,JYAML component;
-    class JRUNNER,SPARKMAN,SRCREG,SRCDEFMODEL,DATASRC,TFACTORY,TRANSFORMERS,OUTSINK process;
-    class SRCCATYAML,DATA data;
+JRUNNER["Main Job Runner\n(runner/execute_batch_job.py)"]
+
+SPARKMAN["SparkSessionManager\n(feature_platform/core/spark.py)"];
+
+end
+
+  
+
+subgraph "Source Catalog & Definition"
+
+SRCREG["SourceRegistry\n(feature_platform/core/source_registry.py)"];
+
+SRCCATYAML["Source Catalog YAMLs\n(source/**/*.yaml)\nDefines: connection details, format,\nschema (fields), entity, type"];
+
+SRCDEFMODEL["SourceDefinition Pydantic Models\n(feature_platform/core/source_definition.py)"];
+
+end
+
+  
+
+subgraph "Data Handling & Transformation"
+
+DATASRC["Data Source Instance\n(e.g., DatabricksSparkSource\nfeature_platform/sources/*)"];
+
+DATA["Data\n(e.g., Spark DataFrame)"];
+
+TFACTORY["Transformer Factory\n(get_transformer\nfeature_platform/features/factory.py)"];
+
+TRANSFORMERS["FeatureTransformer Instances\n(feature_platform/features/*)"];
+
+OUTSINK["Output Sink\n(e.g., Delta Table, Display)"];
+
+end
+
+  
+
+JYAML -->|Loaded by| JRUNNER;
+
+JRUNNER -->|1. Gets Source Def for| SRCREG;
+
+SRCREG -->|Loads & Parses| SRCCATYAML;
+
+SRCCATYAML -->|Validated by & Parsed into| SRCDEFMODEL;
+
+SRCDEFMODEL -->|Structure for| SRCREG;
+
+SRCREG -->|Returns SourceDefinition| JRUNNER;
+
+JRUNNER -->|2. Initializes with SourceDefinition\n& job_input_source.load_params| DATASRC;
+
+DATASRC -->|Uses| SPARKMAN;
+
+SPARKMAN -->|Provides SparkSession| DATASRC;
+
+DATASRC -->|3. Reads | DATA;
+
+JRUNNER -->|4. Gets Transformers| TFACTORY;
+
+TFACTORY -->|Creates| TRANSFORMERS;
+
+TRANSFORMERS -->|5. Apply to| DATA;
+
+DATA -->|6. Written to| OUTSINK;
+
+  
+
+classDef component fill:#f9f,stroke:#333,stroke-width:2px;
+
+classDef data fill:#lightgrey,stroke:#333,stroke-width:1px;
+
+classDef process fill:#lightblue,stroke:#333,stroke-width:2px;
+
+  
+
+class U,JYAML component;
+
+class JRUNNER,SPARKMAN,SRCREG,SRCDEFMODEL,DATASRC,TFACTORY,TRANSFORMERS,OUTSINK process;
+
+class SRCCATYAML,DATA data;
+
 ```
 
 **Flow Description:**
