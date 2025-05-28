@@ -1,10 +1,17 @@
 # domain/features/factory.py
 import logging
 from .transform import FeatureTransformer, SimpleAgeCalculator, WithGreeting
-from .financial_transformers import (
+from .transaction_transformers import (
     UserSpendAggregator,
     UserMonthlyTransactionCounter,
-    UserCategoricalSpendAggregator
+    UserCategoricalSpendAggregator,
+    TransactionIndicatorDeriver,
+    TransactionDatetimeDeriver,
+    TransactionStatusDeriver,
+    TransactionChannelDeriver,
+    TransactionValueDeriver,
+    TransactionModeDeriver,
+    TransactionCategoryDeriver
 )
 
 logger = logging.getLogger(__name__)
@@ -15,6 +22,13 @@ TRANSFORMER_REGISTRY = {
     "UserCategoricalSpendAggregator": UserCategoricalSpendAggregator,
     "SimpleAgeCalculator": SimpleAgeCalculator,
     "WithGreeting": WithGreeting,
+    "TransactionIndicatorDeriver": TransactionIndicatorDeriver,
+    "TransactionDatetimeDeriver": TransactionDatetimeDeriver,
+    "TransactionStatusDeriver": TransactionStatusDeriver,
+    "TransactionChannelDeriver": TransactionChannelDeriver,
+    "TransactionValueDeriver": TransactionValueDeriver,
+    "TransactionModeDeriver": TransactionModeDeriver,
+    "TransactionCategoryDeriver": TransactionCategoryDeriver,
     # Add other transformers here as they are created
 }
 

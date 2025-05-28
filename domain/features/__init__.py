@@ -4,10 +4,17 @@ feature transformations, including base transformer classes, specific feature
 transformer logic, and factories for instantiating transformers.
 """
 from .transform import FeatureTransformer, SimpleAgeCalculator, WithGreeting
-from .financial_transformers import (
+from .transaction_transformers import (
     UserSpendAggregator, 
     UserMonthlyTransactionCounter, 
-    UserCategoricalSpendAggregator
+    UserCategoricalSpendAggregator,
+    TransactionIndicatorDeriver,
+    TransactionDatetimeDeriver,
+    TransactionStatusDeriver,
+    TransactionChannelDeriver,
+    TransactionValueDeriver,
+    TransactionModeDeriver,
+    TransactionCategoryDeriver
 )
 from .factory import TRANSFORMER_REGISTRY, get_transformer # New line
 
@@ -18,6 +25,13 @@ __all__ = [
     "UserSpendAggregator",
     "UserMonthlyTransactionCounter",
     "UserCategoricalSpendAggregator",
+    "TransactionIndicatorDeriver",
+    "TransactionDatetimeDeriver",
+    "TransactionStatusDeriver",
+    "TransactionChannelDeriver",
+    "TransactionValueDeriver",
+    "TransactionModeDeriver",
+    "TransactionCategoryDeriver",
     "TRANSFORMER_REGISTRY", # Exporting the registry itself
     "get_transformer",      # Exporting the factory function
 ]

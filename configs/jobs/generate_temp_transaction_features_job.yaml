@@ -1,0 +1,40 @@
+job_name: "generate_temp_transaction_features_v1"
+description: "Generates a set of derived features from the temporary MM transaction data."
+
+input_source:
+  name: "temp_fact_mm_transaction_source"
+  version: "v1"
+
+feature_transformers:
+  - name: "TransactionIndicatorDeriver"
+    params: {} # Added empty params
+
+  - name: "TransactionDatetimeDeriver"
+    params: {} # Added empty params
+
+  - name: "TransactionStatusDeriver"
+    params: {} # Added empty params
+
+  - name: "TransactionChannelDeriver"
+    params: {} # Added empty params
+
+  - name: "TransactionValueDeriver"
+    params:
+      high_value_threshold: 1000.0
+      input_col: "transactionamount"
+      output_col: "is_high_value_transaction"
+
+  - name: "TransactionModeDeriver"
+    params: {} # Added empty params
+
+  - name: "TransactionCategoryDeriver"
+    params: {} # Added empty params
+
+output_sink:
+  sink_type: "delta_table"
+  config:
+    path: "temp.feature_platform_testing.temp_transaction_features_v1" # Target table in Databricks
+    mode: "overwrite" # Or "append" if preferred, "overwrite" is safer for initial tests
+    options: # Optional Spark write options for Delta
+      mergeSchema: "true" # Good practice if schema might evolve slightly
+    description: "Features generated from temp_fact_mm_transaction table." # For Delta table description
