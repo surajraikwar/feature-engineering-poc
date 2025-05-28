@@ -1,5 +1,5 @@
-from feature_platform.core.spark import SparkSessionManager
-from feature_platform.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
+from domain.core.spark import SparkSessionManager
+from domain.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
 import os
 from dotenv import load_dotenv
 
@@ -22,7 +22,7 @@ def main():
     # Get the Spark session
     with spark_manager as spark:
         # Create a Databricks source config
-        from feature_platform.sources.databricks_spark import DatabricksSparkSourceConfig
+        from domain.sources.databricks_spark import DatabricksSparkSourceConfig
         
         config = DatabricksSparkSourceConfig(
             name="fact_mm_transaction",

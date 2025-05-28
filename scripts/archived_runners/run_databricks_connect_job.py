@@ -6,19 +6,19 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Import necessary classes from the feature_platform
+# Import necessary classes from the domain
 try:
-    from feature_platform.core.spark import SparkSessionManager
-    from feature_platform.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
-    from feature_platform.core.config import DatabricksConnectionConfig # May not be explicitly needed if env vars are set
-    from feature_platform.features import (
+    from domain.core.spark import SparkSessionManager
+    from domain.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
+    from domain.core.config import DatabricksConnectionConfig # May not be explicitly needed if env vars are set
+    from domain.features import (
         UserSpendAggregator,
         UserMonthlyTransactionCounter,
         UserCategoricalSpendAggregator
     )
 except ImportError as e:
     logger.error(
-        "Failed to import necessary modules from feature_platform. "
+        "Failed to import necessary modules from domain. "
         "Ensure the package is installed correctly (e.g., `pip install -e .`) "
         "and your PYTHONPATH is set up if needed. Error: %s", e
     )

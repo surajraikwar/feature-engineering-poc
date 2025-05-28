@@ -5,13 +5,13 @@ A feature platform for managing machine learning features with a focus on data q
 ## Project Structure
 
 ```
-feature-platform/
+domain/                   # Project root (formerly feature-platform)
 ├── config/               # Configuration files (Not extensively used yet)
 ├── configs/              # Job configurations
 │   └── jobs/
 │       └── sample_financial_features_job.yaml # Example job definition
 ├── docs/                 # Documentation (including entity diagrams)
-├── feature_platform/     # Core package
+├── domain/               # Core package (formerly feature_platform)
 │   ├── core/             # Core functionality
 │   │   ├── __init__.py
 │   │   ├── config.py     # Centralized configuration (e.g., DatabricksConnectionConfig)
@@ -61,34 +61,34 @@ feature-platform/
 ## Core Components
 
 ### Spark Integration
-*   **`SparkSessionManager` (`feature_platform/core/spark.py`):** Manages the lifecycle of a `SparkSession`.
-*   **`DatabricksConnectionConfig` (`feature_platform/core/config.py`):** Centralized dataclass for Databricks connection parameters (hostname, token, HTTP path, catalog, schema), primarily sourced from environment variables.
+*   **`SparkSessionManager` (`domain/core/spark.py`):** Manages the lifecycle of a `SparkSession`.
+*   **`DatabricksConnectionConfig` (`domain/core/config.py`):** Centralized dataclass for Databricks connection parameters (hostname, token, HTTP path, catalog, schema), primarily sourced from environment variables.
 
 ### Source Catalog
 The `source/` directory serves as a **catalog of reusable, versioned data source definitions**. Each data source is defined in a YAML file.
 *   **Structure:** Typically `source/{source_name}/v{version}/{source_name}.yaml`.
 *   **Content:** Each YAML file defines a single source, specifying its `name`, `version`, `type` (e.g., "databricks", "snowflake"), `entity` it relates to, connection/access `config` (like table names, paths, queries, database details), `fields` schema, and optional `quality_checks`. For detailed structure, see `source/README.md`.
-*   **`SourceDefinition` (`feature_platform/core/source_definition.py`):** Pydantic models that define the expected structure of these source YAML files, enabling validation.
-*   **`SourceRegistry` (`feature_platform/core/source_registry.py`):** A class responsible for loading all source definitions from the `source/` directory, validating them against `SourceDefinition` models, and making them retrievable by `name` and `version`.
+*   **`SourceDefinition` (`domain/core/source_definition.py`):** Pydantic models that define the expected structure of these source YAML files, enabling validation.
+*   **`SourceRegistry` (`domain/core/source_registry.py`):** A class responsible for loading all source definitions from the `source/` directory, validating them against `SourceDefinition` models, and making them retrievable by `name` and `version`.
 
 ### Data Source Implementations
 These are Python classes that know how to read data based on a `SourceDefinition` (retrieved from the catalog).
-*   **`Source` (`feature_platform/sources/base.py`):** Abstract base class for all data sources.
-*   **`SparkSource` (`feature_platform/sources/spark_base.py`):** Abstract base class for sources returning Spark DataFrames.
-*   **`DatabricksSparkSource` (`feature_platform/sources/databricks_spark.py`):** Reads data from Databricks (typically Delta tables) using Spark. Its configuration (table name, format, etc.) is now primarily derived from a `SourceDefinition` loaded from the Source Catalog.
-*   **`DatabricksSQLSource` (`feature_platform/sources/databricks_sql.py`):** Reads data from Databricks using the SQL Connector (returns pandas DataFrames). Similarly, its configuration is derived from the Source Catalog.
+*   **`Source` (`domain/sources/base.py`):** Abstract base class for all data sources.
+*   **`SparkSource` (`domain/sources/spark_base.py`):** Abstract base class for sources returning Spark DataFrames.
+*   **`DatabricksSparkSource` (`domain/sources/databricks_spark.py`):** Reads data from Databricks (typically Delta tables) using Spark. Its configuration (table name, format, etc.) is now primarily derived from a `SourceDefinition` loaded from the Source Catalog.
+*   **`DatabricksSQLSource` (`domain/sources/databricks_sql.py`):** Reads data from Databricks using the SQL Connector (returns pandas DataFrames). Similarly, its configuration is derived from the Source Catalog.
 
 ### Feature Transformers
-*   **`FeatureTransformer` (`feature_platform/features/transform.py`):** Abstract base class for feature transformation logic.
-*   **Transformer Factory (`feature_platform/features/factory.py`):** Transformers are registered and instantiated by the `get_transformer` factory function, allowing job configurations to refer to them by name.
+*   **`FeatureTransformer` (`domain/features/transform.py`):** Abstract base class for feature transformation logic.
+*   **Transformer Factory (`domain/features/factory.py`):** Transformers are registered and instantiated by the `get_transformer` factory function, allowing job configurations to refer to them by name.
 
 ### Job Configuration & Loading
-*   **`config_loader.py` (`feature_platform/jobs/config_loader.py`):** Contains Pydantic models for job YAML structure (see "Job Configuration (YAML)" section) and the `load_job_config` function.
+*   **`config_loader.py` (`domain/jobs/config_loader.py`):** Contains Pydantic models for job YAML structure (see "Job Configuration (YAML)" section) and the `load_job_config` function.
 
 ### Entity Registry
 *   **Location:** `registry/entity/`
-*   **`Entity` & `Relation` (`feature_platform/core/entity.py`):** Pydantic models for entity and relationship definitions.
-*   **`EntityRegistry` (`feature_platform/core/registry.py`):** Loads and manages entity definitions from YAML files.
+*   **`Entity` & `Relation` (`domain/core/entity.py`):** Pydantic models for entity and relationship definitions.
+*   **`EntityRegistry` (`domain/core/registry.py`):** Loads and manages entity definitions from YAML files.
 
 ## Getting Started
 
@@ -103,7 +103,7 @@ These are Python classes that know how to read data based on a `SourceDefinition
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd feature-platform
+   cd domain  # Assuming the repository itself is now named 'domain' or you cd into it
    ```
 
 2. Create and activate a virtual environment:
@@ -160,7 +160,7 @@ The path to the Source Catalog directory (containing all `source/**/*.yaml` defi
 
 ## Job Configuration (YAML)
 
-Batch jobs are defined in YAML files (e.g., `configs/jobs/sample_financial_features_job.yaml`). The structure is validated by Pydantic models in `feature_platform/jobs/config_loader.py`.
+Batch jobs are defined in YAML files (e.g., `configs/jobs/sample_financial_features_job.yaml`). The structure is validated by Pydantic models in `domain/jobs/config_loader.py`.
 
 ```yaml
 job_name: "financial_features_extraction_v1"

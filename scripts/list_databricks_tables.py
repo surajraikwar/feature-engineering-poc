@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from feature_platform.core.spark import SparkSessionManager
+from domain.core.spark import SparkSessionManager
 import os
 from dotenv import load_dotenv
 

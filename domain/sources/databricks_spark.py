@@ -4,9 +4,9 @@ import logging
 
 from pyspark.sql.utils import AnalysisException
 
-from feature_platform.core.config import DatabricksConnectionConfig
-from feature_platform.core.spark import SparkSessionManager
-from feature_platform.sources.spark_base import SparkSource, SparkSourceConfig
+from domain.core.config import DatabricksConnectionConfig
+from domain.core.spark import SparkSessionManager
+from domain.sources.spark_base import SparkSource, SparkSourceConfig
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame as SparkDataFrame

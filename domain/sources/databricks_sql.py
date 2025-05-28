@@ -1,4 +1,4 @@
-# feature_platform/sources/databricks_sql.py
+# domain/sources/databricks_sql.py
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union # Keep Union for config flexibility
@@ -11,8 +11,8 @@ from databricks.sql.client import Connection as DatabricksConnection # Keep this
 
 from .base import Source, SourceConfig # Adjusted path if needed, but should be fine
 # from ..core.registry import EntityRegistry # Keep if used by validate, remove if not
-from feature_platform.core.registry import EntityRegistry # Assuming direct import works
-from feature_platform.core.config import DatabricksConnectionConfig # Import the central config
+from domain.core.registry import EntityRegistry # Assuming direct import works
+from domain.core.config import DatabricksConnectionConfig # Import the central config
 
 logger = logging.getLogger(__name__)
 

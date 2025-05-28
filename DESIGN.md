@@ -55,20 +55,20 @@ graph TD
 
     subgraph "Job Execution Core"
         JRUNNER["Main Job Runner\n(runner/execute_batch_job.py)"]
-        SPARKMAN["SparkSessionManager\n(feature_platform/core/spark.py)"];
+        SPARKMAN["SparkSessionManager\n(domain/core/spark.py)"];
     end
 
     subgraph "Source Catalog & Definition"
-        SRCREG["SourceRegistry\n(feature_platform/core/source_registry.py)"];
+        SRCREG["SourceRegistry\n(domain/core/source_registry.py)"];
         SRCCATYAML["Source Catalog YAMLs\n(source/**/*.yaml)\nDefines: connection details, format,\nschema (fields), entity, type"];
-        SRCDEFMODEL["SourceDefinition Pydantic Models\n(feature_platform/core/source_definition.py)"];
+        SRCDEFMODEL["SourceDefinition Pydantic Models\n(domain/core/source_definition.py)"];
     end
 
     subgraph "Data Handling & Transformation"
-        DATASRC["Data Source Instance\n(e.g., DatabricksSparkSource\nfeature_platform/sources/*)"];
+        DATASRC["Data Source Instance\n(e.g., DatabricksSparkSource\ndomain/sources/*)"];
         DATA["Data\n(e.g., Spark DataFrame)"];
-        TFACTORY["Transformer Factory\n(get_transformer\nfeature_platform/features/factory.py)"];
-        TRANSFORMERS["FeatureTransformer Instances\n(feature_platform/features/*)"];
+        TFACTORY["Transformer Factory\n(get_transformer\ndomain/features/factory.py)"];
+        TRANSFORMERS["FeatureTransformer Instances\n(domain/features/*)"];
         OUTSINK["Output Sink\n(e.g., Delta Table, Display)"];
     end
 
@@ -123,7 +123,7 @@ This architecture emphasizes a configuration-driven approach, promoting reusabil
 
 This section details the primary modules and their key components within the Feature Platform.
 
-### 3.1. `feature_platform/core/`
+### 3.1. `domain/core/`
 
 This directory houses the foundational elements of the platform.
 
@@ -162,7 +162,7 @@ This directory houses the foundational elements of the platform.
     *   **Purpose**: Provides utilities for managing Spark sessions.
     *   **Key Class**: `SparkSessionManager`: Manages the lifecycle of a `SparkSession`. It can initialize a local Spark session or configure one for Databricks Connect (using environment variables like `SPARK_REMOTE`, `DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `DATABRICKS_CLUSTER_ID`). It's designed to be used as a context manager or via direct `get_session()` and `stop_session()` calls.
 
-### 3.2. `feature_platform/sources/`
+### 3.2. `domain/sources/`
 
 This module contains the abstractions and concrete implementations for accessing data from various systems.
 
@@ -185,7 +185,7 @@ This module contains the abstractions and concrete implementations for accessing
         *   `DatabricksSQLSource`: Reads data from Databricks tables using the Databricks SQL Connector, returning Pandas DataFrames. It constructs SQL queries based on its configuration.
         *   **Connection Logic**: Prioritizes connection parameters from the `DatabricksConnectionConfig` object if provided in its configuration. If not, it falls back to environment variables (via `DatabricksSQLConnectionLocalConfig`) for `server_hostname`, `http_path`, and `access_token`.
 
-### 3.3. `feature_platform/features/`
+### 3.3. `domain/features/`
 
 This module is dedicated to feature transformation logic.
 
@@ -200,7 +200,7 @@ This module is dedicated to feature transformation logic.
 *   **Example Transformers (e.g., `financial_transformers.py`)**:
     *   These files contain domain-specific or more complex feature transformers (like `UserSpendAggregator`, `UserMonthlyTransactionCounter`, `UserCategoricalSpendAggregator`). They inherit from `FeatureTransformer` and implement their specific `apply` logic.
 
-### 3.4. `feature_platform/jobs/`
+### 3.4. `domain/jobs/`
 
 This module focuses on the definition and loading of batch job configurations.
 
@@ -216,9 +216,9 @@ This module focuses on the definition and loading of batch job configurations.
 
 *   **Role**: This script is the main entry point for executing batch feature engineering jobs defined by YAML configurations.
 *   **Orchestration**:
-    1.  Loads the specified job YAML configuration file using `load_job_config` from `feature_platform.jobs.config_loader`.
+    1.  Loads the specified job YAML configuration file using `load_job_config` from `domain.jobs.config_loader`.
     2.  Initializes the `SparkSessionManager` to ensure a Spark session is available (configured for local or Databricks Connect based on environment variables).
-    3.  Uses the `SourceRegistry` (from `feature_platform.core.source_registry`) to retrieve the detailed `SourceDefinition` for the input source specified in the job config's `input_source.name` and `input_source.version`.
+    3.  Uses the `SourceRegistry` (from `domain.core.source_registry`) to retrieve the detailed `SourceDefinition` for the input source specified in the job config's `input_source.name` and `input_source.version`.
     4.  Instantiates the appropriate data source class (e.g., `DatabricksSparkSource`) using the `SourceDefinition` and passes `input_source.load_params` for runtime customization of data reading.
     5.  Reads the data into a DataFrame. The source itself may perform schema validation if configured with field definitions.
     6.  Iterates through the `feature_transformers` list in the job configuration, using the `TransformerFactory` (`get_transformer`) to instantiate each transformer by name with its parameters.
@@ -255,7 +255,7 @@ These YAML files define the "what" of the data and processing, allowing the Pyth
 
 The Feature Platform relies heavily on Pydantic models to define, validate, and manage configurations. These models serve as data contracts throughout the system, ensuring consistency and providing clear structures for YAML files.
 
-### 4.1. `SourceDefinition` (from `feature_platform.core.source_definition`)
+### 4.1. `SourceDefinition` (from `domain.core.source_definition`)
 
 *   **Role**: This is a Pydantic model that represents a single, detailed data source configuration. Each YAML file within the `source/` catalog (e.g., `source/my_source/v1/my_source.yaml`) is parsed and validated into a `SourceDefinition` object. It provides a structured Python representation of a data source's properties.
 *   **Loading**: `SourceDefinition` objects are loaded from their YAML representations by the `SourceRegistry`.
@@ -272,7 +272,7 @@ The Feature Platform relies heavily on Pydantic models to define, validate, and 
     *   `quality_checks: Optional[List[QualityCheckDefinition]]`: A list defining data quality checks to be performed on the source data. Each `QualityCheckDefinition` specifies the `type` of check, the `field` it applies to, and any `condition`.
     *   `metadata: Optional[MetadataDefinition]`: Contains metadata about the source definition itself, such as creation/update timestamps (`created_at`, `updated_at`), authors (`created_by`, `updated_by`), and descriptive `tags`.
 
-### 4.2. `JobConfig` (from `feature_platform.jobs.config_loader`)
+### 4.2. `JobConfig` (from `domain.jobs.config_loader`)
 
 *   **Role**: This Pydantic model represents the complete configuration for a single batch feature engineering job. It is loaded from a job YAML file (typically located in `configs/jobs/`). The `JobConfig` object structures how a job reads data, what transformations it applies, and where it sends the results.
 *   **Key Attributes**:
@@ -306,10 +306,10 @@ This workflow outlines the steps involved when a user executes a batch feature e
 
 2.  **Job Configuration Loading**:
     *   `runner/execute_batch_job.py` reads the specified job YAML file.
-    *   It uses `load_job_config` (from `feature_platform.jobs.config_loader`) to parse and validate the YAML content into a `JobConfig` Pydantic object.
+    *   It uses `load_job_config` (from `domain.jobs.config_loader`) to parse and validate the YAML content into a `JobConfig` Pydantic object.
 
 3.  **Spark Session Initialization**:
-    *   The `SparkSessionManager` (from `feature_platform.core.spark`) is initialized. This ensures a Spark session is available, configured for either local execution or Databricks Connect based on environment variables (e.g., `SPARK_REMOTE`).
+    *   The `SparkSessionManager` (from `domain.core.spark`) is initialized. This ensures a Spark session is available, configured for either local execution or Databricks Connect based on environment variables (e.g., `SPARK_REMOTE`).
 
 4.  **Input Source Preparation**:
     *   The runner accesses `job_config.input_source`, which is a `JobInputSourceConfig` object containing `name`, `version` (optional), and `load_params` (optional).
@@ -329,7 +329,7 @@ This workflow outlines the steps involved when a user executes a batch feature e
 6.  **Feature Transformation**:
     *   The resulting DataFrame is passed sequentially through the feature transformers specified in `job_config.feature_transformers`.
     *   For each transformer configuration in the list:
-        *   `get_transformer(name, params)` (from `feature_platform.features.factory`) is called with the transformer's `name` and `params` from the job config.
+        *   `get_transformer(name, params)` (from `domain.features.factory`) is called with the transformer's `name` and `params` from the job config.
         *   The factory function looks up the transformer class in its `TRANSFORMER_REGISTRY` and instantiates it.
         *   The `apply(dataframe)` method of the instantiated transformer is called, processing the DataFrame.
     *   The output DataFrame from one transformer becomes the input for the next.
@@ -345,7 +345,7 @@ This workflow outlines the steps involved when a user executes a batch feature e
 This workflow describes how data source definitions are created, managed, and loaded.
 
 1.  **Definition**: A user defines a new data source or a new version of an existing source by creating/editing a YAML file within the `source/` directory structure (e.g., `source/my_data_source/v1.2/my_data_source.yaml`).
-    *   The YAML structure must conform to the schema defined by the `SourceDefinition` Pydantic model in `feature_platform.core.source_definition`. This includes fields like `name`, `version`, `type`, `entity`, `config` (source-type specific details), `fields` (schema), `metadata`, and `quality_checks`.
+    *   The YAML structure must conform to the schema defined by the `SourceDefinition` Pydantic model in `domain.core.source_definition`. This includes fields like `name`, `version`, `type`, `entity`, `config` (source-type specific details), `fields` (schema), `metadata`, and `quality_checks`.
 
 2.  **Registry Initialization**: The `SourceRegistry.from_yaml_dir(directory_path)` class method is called. This typically happens:
     *   At the beginning of `runner/execute_batch_job.py` to load all available source definitions.
@@ -373,12 +373,12 @@ This workflow describes how data source definitions are created, managed, and lo
 This workflow details how feature transformers are defined, registered, and applied during job execution.
 
 1.  **Definition**:
-    *   Feature transformers are Python classes that inherit from the `FeatureTransformer` abstract base class (defined in `feature_platform/features/transform.py`).
+    *   Feature transformers are Python classes that inherit from the `FeatureTransformer` abstract base class (defined in `domain/features/transform.py`).
     *   Each transformer class must implement an `apply(self, dataframe)` method, which takes a DataFrame as input and returns a transformed DataFrame.
     *   Transformers can accept parameters in their `__init__` method, which are provided from the job configuration.
 
 2.  **Registration**:
-    *   Transformer classes are registered in the `TRANSFORMER_REGISTRY` (a dictionary) located in `feature_platform/features/factory.py`.
+    *   Transformer classes are registered in the `TRANSFORMER_REGISTRY` (a dictionary) located in `domain/features/factory.py`.
     *   This registry maps a unique string name (e.g., "UserSpendAggregator") to the transformer class itself. Registration typically happens at module import time (e.g., by decorating the class or explicitly adding it to the registry).
 
 3.  **Job Configuration**:
@@ -390,7 +390,7 @@ This workflow details how feature transformers are defined, registered, and appl
 4.  **Execution-Time Application**:
     *   During job execution, `runner/execute_batch_job.py` iterates through the `feature_transformers` list from the `JobConfig` object.
     *   For each transformer configuration:
-        *   The `get_transformer(name, params)` factory function (from `feature_platform/features/factory.py`) is called with the `name` and `params`.
+        *   The `get_transformer(name, params)` factory function (from `domain/features/factory.py`) is called with the `name` and `params`.
         *   `get_transformer` looks up the transformer class associated with the `name` in the `TRANSFORMER_REGISTRY`.
         *   It instantiates the retrieved class, passing the `params` to its `__init__` method.
         *   The `apply(dataframe)` method of this newly created transformer instance is then called with the current state of the job's DataFrame.
@@ -430,7 +430,7 @@ This section highlights key design decisions made during the development of the 
 
 ### 6.4. Abstraction of Core Components
 
-*   **Choice**: Utilizing Abstract Base Classes (ABCs) like `Source` (in `feature_platform.sources.base`) and `FeatureTransformer` (in `feature_platform.features.transform`).
+*   **Choice**: Utilizing Abstract Base Classes (ABCs) like `Source` (in `domain.sources.base`) and `FeatureTransformer` (in `domain.features.transform`).
 *   **Rationale**:
     *   **Clear Interfaces**: Defines a clear, common interface for different types of data sources and feature transformers.
     *   **Extensibility**: Allows new data source types (e.g., for different databases or file systems) or new feature transformation techniques to be added by subclassing these ABCs without altering the core job execution workflow.
@@ -439,7 +439,7 @@ This section highlights key design decisions made during the development of the 
 ### 6.5. Factory Pattern for Extensibility
 
 *   **Choice**: Employing factory mechanisms for instantiating objects based on string identifiers from configuration files. This includes:
-    *   The `get_transformer` function (from `feature_platform.features.factory.py`) which uses `TRANSFORMER_REGISTRY`.
+    *   The `get_transformer` function (from `domain.features.factory.py`) which uses `TRANSFORMER_REGISTRY`.
     *   The `SOURCE_REGISTRY` map in `runner/execute_batch_job.py` (a dictionary mapping source type strings like "databricks" to source classes like `DatabricksSparkSource`).
 *   **Rationale**:
     *   **Decoupling**: Decouples the client code (e.g., the job runner) from concrete implementations of transformers and sources. The runner doesn't need to know about every possible class, only the string identifier.
@@ -448,7 +448,7 @@ This section highlights key design decisions made during the development of the 
 
 ### 6.6. Centralized Spark Session Management
 
-*   **Choice**: Implementing a `SparkSessionManager` (in `feature_platform.core.spark`) to handle the creation, configuration, and lifecycle of `SparkSession` objects.
+*   **Choice**: Implementing a `SparkSessionManager` (in `domain.core.spark`) to handle the creation, configuration, and lifecycle of `SparkSession` objects.
 *   **Rationale**:
     *   **Consistency**: Ensures that Spark sessions are configured and managed consistently across all parts of the platform that require Spark (e.g., Spark-based sources, some transformers).
     *   **Simplified Usage**: Simplifies Spark session handling for component developers; they can just request a session from the manager.
@@ -481,7 +481,7 @@ This section provides a high-level overview of setting up and using the Feature 
 ### 7.2. Main Usage Pattern
 
 1.  **Define Data Sources**:
-    *   Data sources are defined as YAML files within the `source/` directory (Source Catalog), following the structure specified by the `SourceDefinition` Pydantic model (see `feature_platform/core/source_definition.py`). Each source definition includes its name, version, type, connection configuration, schema (fields), and other metadata.
+    *   Data sources are defined as YAML files within the `source/` directory (Source Catalog), following the structure specified by the `SourceDefinition` Pydantic model (see `domain/core/source_definition.py`). Each source definition includes its name, version, type, connection configuration, schema (fields), and other metadata.
     *   Example path: `source/my_data_source/v1/my_data_source.yaml`.
 
 2.  **Validate Source Catalog**:
@@ -577,11 +577,11 @@ There are several ways to make the `feature-platform` code available to your Dat
 Your job configurations (`configs/jobs/*.yaml`) and Source Catalog definitions (`source/**/*.yaml`) need to be accessible by the Databricks job.
 
 *   **Databricks Repos**: If you are using Databricks Repos to manage your `feature-platform` code, the simplest approach is to include your `configs/` and `source/` directories within the same repository. The paths used in the job parameters can then be relative to the repository root.
-    *   Example: If your repo is cloned as `/Workspace/Repos/my_user/my_feature_platform/`, and `databricks_job_main.py` is run from the `my_feature_platform/` root, paths like `configs/jobs/my_job.yaml` and `source/` would work.
+    *   Example: If your repo is cloned as `/Workspace/Repos/my_user/my_domain_project/`, and `databricks_job_main.py` is run from the `my_domain_project/` root, paths like `configs/jobs/my_job.yaml` and `source/` would work.
 *   **DBFS**: Alternatively, upload these configuration directories to DBFS.
     *   Example:
-        *   Source Catalog: `dbfs:/FileStore/feature_platform_configs/source/`
-        *   Job Configs: `dbfs:/FileStore/feature_platform_configs/configs/jobs/`
+        *   Source Catalog: `dbfs:/FileStore/domain_configs/source/`
+        *   Job Configs: `dbfs:/FileStore/domain_configs/configs/jobs/`
     *   You would then provide these DBFS paths as parameters to the job.
 
 ### 8.5. Databricks Job Task Configuration
@@ -591,14 +591,14 @@ When setting up your Databricks job:
 *   **Type**: Choose "Python file".
 *   **Path/Source**:
     *   If using Databricks Repos: Provide the workspace path to `runner/databricks_job_main.py` within your cloned repository.
-        *   Example: `/Workspace/Repos/<user_or_shared_folder>/feature-platform/runner/databricks_job_main.py`
+        *   Example: `/Workspace/Repos/<user_or_shared_folder>/domain/runner/databricks_job_main.py`
     *   If using a wheel and DBFS for the script: Provide the DBFS path if you've also uploaded the `runner` scripts there, or ensure the runner script is part of your library wheel if it's structured as an entry point (though `databricks_job_main.py` is a standalone script). Usually, if using a wheel, the script might be part of a package that's callable. For `databricks_job_main.py` as a script, Repos or DBFS path for the script itself is more common.
 *   **Parameters**: These are passed as arguments to `runner/databricks_job_main.py`.
     *   **Example using DBFS paths for configs**:
         ```json
         [
-            "--job-config-path", "/dbfs/FileStore/feature_platform_configs/configs/jobs/sample_financial_features_job.yaml",
-            "--source-catalog-path", "/dbfs/FileStore/feature_platform_configs/source/"
+            "--job-config-path", "/dbfs/FileStore/domain_configs/configs/jobs/sample_financial_features_job.yaml",
+            "--source-catalog-path", "/dbfs/FileStore/domain_configs/source/"
         ]
         ```
     *   **Example using relative paths (if running from a Databricks Repo checkout and configs are in the repo)**: Assuming the job's working directory is the root of the repo.
@@ -613,7 +613,7 @@ When setting up your Databricks job:
 ### 8.6. Environment Variables (Optional)
 
 *   **`FP_SOURCE_CATALOG_PATH`**: Instead of using the `--source-catalog-path` script parameter, you can configure this as a Spark environment variable at the cluster level (under "Advanced Options" -> "Spark" in the cluster configuration UI).
-    *   Example: `FP_SOURCE_CATALOG_PATH=/dbfs/FileStore/feature_platform_configs/source/`
+    *   Example: `FP_SOURCE_CATALOG_PATH=/dbfs/FileStore/domain_configs/source/`
 *   **Databricks Connection Variables**: When running directly on a Databricks cluster (not using Databricks Connect from an external client), environment variables like `DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `DATABRICKS_CLUSTER_ID`, `SPARK_REMOTE` are generally **not** needed for the `SparkSessionManager`, as it will detect the Databricks environment and use the managed Spark session. These are primarily for client-side connections.
 ```
 

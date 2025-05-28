@@ -2,7 +2,7 @@ import logging
 import sys
 from pathlib import Path
 
-from feature_platform.core.source_registry import SourceRegistry
+from domain.core.source_registry import SourceRegistry
 
 # Configure basic logging
 logging.basicConfig(

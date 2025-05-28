@@ -8,10 +8,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 try:
-    from feature_platform.core.spark import SparkSessionManager
-    from feature_platform.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
-    from feature_platform.core.config import DatabricksConnectionConfig
-    from feature_platform.features.transform import SimpleAgeCalculator, WithGreeting
+    from domain.core.spark import SparkSessionManager
+    from domain.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
+    from domain.core.config import DatabricksConnectionConfig
+    from domain.features.transform import SimpleAgeCalculator, WithGreeting
 except ImportError as e:
     logger.error(f"Failed to import necessary modules. Ensure PYTHONPATH is set correctly and all dependencies are installed: {e}")
     raise

@@ -5,7 +5,7 @@ from unittest.mock import patch, call, MagicMock
 import pytest
 import pandas as pd
 
-from feature_platform.sources.databricks_sql import DatabricksSQLSource, DeltaSQLSourceConfig
+from domain.sources.databricks_sql import DatabricksSQLSource, DeltaSQLSourceConfig
 
 
 def test_databricks_sql_source_initialization(sample_source_config):

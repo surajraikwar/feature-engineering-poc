@@ -1,5 +1,5 @@
 """
-The feature_platform.jobs module handles the definition and configuration
+The domain.jobs module handles the definition and configuration
 of batch jobs, including Pydantic models for job structures and utilities
 for loading job configurations.
 """

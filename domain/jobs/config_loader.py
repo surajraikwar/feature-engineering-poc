@@ -116,7 +116,7 @@ if __name__ == "__main__":
     dummy_config_path = "configs/jobs/sample_financial_features_job.yaml" # Path from repo root
 
     # For standalone testing, ensure the dummy config file exists relative to this script,
-    # or use an absolute path. If running this file directly, CWD is .../feature-platform/feature_platform/jobs
+    # or use an absolute path. If running this file directly, CWD is .../domain/domain/jobs
     # So, dummy_config_path should be "../../configs/jobs/sample_financial_features_job.yaml"
     
     # Let's adjust path for direct execution of this file for testing
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         # Use a path relative to the script's location for creation if it's a relative path
         path_for_creation = dummy_config_path
         if not os.path.isabs(dummy_config_path) and dummy_config_path.startswith("configs/"):
-            # If script is in feature_platform/jobs, and path is "configs/...", go up two levels
+            # If script is in domain/jobs, and path is "configs/...", go up two levels
             path_for_creation = os.path.join(os.path.dirname(__file__), "..", "..", dummy_config_path)
             path_for_creation = os.path.normpath(path_for_creation)
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         logging.error(f"An error occurred during example usage with '{dummy_config_path}': {e}", exc_info=True)
 
     # Test with a deliberately bad config
-    # Adjust path for creation if running from feature_platform/jobs
+    # Adjust path for creation if running from domain/jobs
     bad_config_base_name = "bad_job_config.yaml"
     bad_config_dir = os.path.dirname(dummy_config_path) # Use same dir as dummy_config_path
     bad_config_path = os.path.join(bad_config_dir, bad_config_base_name)

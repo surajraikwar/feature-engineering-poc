@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 from pydantic import ValidationError
 
-from feature_platform.core.source_definition import SourceDefinition
+from domain.core.source_definition import SourceDefinition
 
 logger = logging.getLogger(__name__)
 

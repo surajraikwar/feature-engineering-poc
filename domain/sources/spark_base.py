@@ -2,13 +2,13 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict
 
-from feature_platform.sources.base import Source, SourceConfig
-from feature_platform.core.spark import SparkSessionManager # Ensure this import works
+from domain.sources.base import Source, SourceConfig
+from domain.core.spark import SparkSessionManager # Ensure this import works
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame as SparkDataFrame # For type hinting
 
-from feature_platform.core.source_definition import FieldDefinition # For type hinting if needed, not directly used here yet
+from domain.core.source_definition import FieldDefinition # For type hinting if needed, not directly used here yet
 
 @dataclass
 class SparkSourceConfig(SourceConfig):
@@ -25,7 +25,7 @@ class SparkSource(Source["SparkDataFrame"]):
     These sources are expected to return Spark DataFrames.
     """
 
-    def __init__(self, config: SparkSourceConfig, spark_manager: SparkSessionManager):
+    def __init__(self, config: SparkSourceConfig, spark_manager: SparkSessionManager): # SparkSessionManager from domain.core.spark
         super().__init__(config) # config here is SparkSourceConfig
         self.spark_manager = spark_manager
         # Ensure config is of type SparkSourceConfig for type checkers if needed

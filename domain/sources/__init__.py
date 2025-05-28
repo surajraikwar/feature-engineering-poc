@@ -1,5 +1,5 @@
 """
-The feature_platform.sources module offers abstractions and concrete
+The domain.sources module offers abstractions and concrete
 implementations for various data sources, such as Databricks Spark tables,
 Databricks SQL endpoints, and other potential data backends.
 """

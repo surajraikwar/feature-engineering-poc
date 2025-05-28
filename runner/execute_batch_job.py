@@ -4,17 +4,17 @@ import sys
 import os # Ensure os is imported, it's used in main for SPARK_REMOTE and in __main__
 from pathlib import Path
 
-from feature_platform.core.spark import SparkSessionManager
-from feature_platform.jobs.config_loader import load_job_config, JobConfig, JobInputSourceConfig
-from feature_platform.core.source_registry import SourceRegistry
-from feature_platform.core.source_definition import SourceDefinition, DatabricksSourceDetailConfig
+from domain.core.spark import SparkSessionManager
+from domain.jobs.config_loader import load_job_config, JobConfig, JobInputSourceConfig
+from domain.core.source_registry import SourceRegistry
+from domain.core.source_definition import SourceDefinition, DatabricksSourceDetailConfig
 
 # --- Source Factory (Basic) ---
-from feature_platform.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
-from feature_platform.sources.spark_base import SparkSource # For type hinting
+from domain.sources.databricks_spark import DatabricksSparkSource, DatabricksSparkSourceConfig
+from domain.sources.spark_base import SparkSource # For type hinting
 
 # --- Transformer Factory ---
-from feature_platform.features import (
+from domain.features import (
     UserSpendAggregator,
     UserMonthlyTransactionCounter,
     UserCategoricalSpendAggregator,
@@ -22,7 +22,7 @@ from feature_platform.features import (
     WithGreeting,
     get_transformer # Import the new factory function
 )
-# from feature_platform.features.transform import FeatureTransformer # No longer needed directly here if get_transformer returns it
+# from domain.features.transform import FeatureTransformer # No longer needed directly here if get_transformer returns it
 
 # Setup basic logging
 logging.basicConfig(

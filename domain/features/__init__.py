@@ -1,5 +1,5 @@
 """
-The feature_platform.features module provides tools and implementations for
+The domain.features module provides tools and implementations for
 feature transformations, including base transformer classes, specific feature
 transformer logic, and factories for instantiating transformers.
 """

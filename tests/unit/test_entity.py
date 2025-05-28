@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import yaml
 
-from feature_platform.core.entity import Entity, Relation
+from domain.core.entity import Entity, Relation
 
 
 def test_entity_creation():

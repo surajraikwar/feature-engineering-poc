@@ -4,16 +4,16 @@ import os
 import sys
 from pathlib import Path
 
-# Assuming 'feature_platform' is installed or in PYTHONPATH
-from feature_platform.jobs.config_loader import load_job_config, JobConfig
-from feature_platform.runner.execute_batch_job import run_feature_platform_job 
+# Assuming 'domain' is installed or in PYTHONPATH
+from domain.jobs.config_loader import load_job_config, JobConfig
+from domain.runner.execute_batch_job import run_feature_platform_job 
 # Note: run_feature_platform_job is in execute_batch_job.py, which is in the same 'runner' directory.
 # For Databricks execution, it's common to package the library and install it,
 # or to ensure PYTHONPATH is set up correctly if running from a repo checkout.
 # If execute_batch_job.py is intended to be a module, its name might need adjustment or an __init__.py in runner.
-# For now, let's assume feature_platform.runner.execute_batch_job is resolvable.
+# For now, let's assume domain.runner.execute_batch_job is resolvable.
 
-from feature_platform.core.spark import SparkSessionManager
+from domain.core.spark import SparkSessionManager
 
 # Setup basic logging
 logging.basicConfig(

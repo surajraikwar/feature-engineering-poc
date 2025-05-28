@@ -1,4 +1,4 @@
-# feature_platform/features/factory.py
+# domain/features/factory.py
 import logging
 from .transform import FeatureTransformer, SimpleAgeCalculator, WithGreeting
 from .financial_transformers import (
