@@ -79,6 +79,9 @@ class SparkSessionManager:
                 logger.info(f"Not in a Databricks job environment. Attempting to create SparkSession with app_name='{self.app_name}' and resolved master_url='{self.master_url}'")
                 self._is_databricks_provided_session = False
                 try:
+                    # Explicit import here as requested, though a global one exists.
+                    # This is to address a specific scenario or test.
+                    from pyspark.sql import SparkSession
                     builder = SparkSession.builder.appName(self.app_name)
 
                     if self.master_url.startswith("sc://"):
