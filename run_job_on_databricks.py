@@ -42,7 +42,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Constants
-VOLUME_BASE_PATH = "/temp/feature_platform_testing/libraries"
+VOLUME_BASE_PATH = "/temp/feature_platform_testing"
 WHEEL_FILE = "feature_platform-0.1.0-py3-none-any.whl"
 
 
@@ -75,50 +75,80 @@ def build_wheel() -> bool:
         return False
 
 
-def upload_file(host: str, token: str, local_path: str, volume_path: str) -> bool:
-    """Upload a file to Databricks Volume."""
+def upload_file(host: str, token: str, local_path: str, remote_path: str) -> bool:
+    """Upload a file to a Databricks volume.
+    
+    Args:
+        host: Databricks workspace URL
+        token: Databricks access token
+        local_path: Local path to the file
+        remote_path: Remote path in the volume (relative to VOLUME_BASE_PATH)
+        
+    Returns:
+        bool: True if upload was successful, False otherwise
+    """
     try:
-        # Ensure volume_path is absolute and properly formatted
-        if not volume_path.startswith(('dbfs:', '/Volumes/')):
-            if not volume_path.startswith('/'):
-                volume_path = f"{VOLUME_BASE_PATH.rstrip('/')}/{volume_path}"
-            volume_path = f"/Volumes/{volume_path.lstrip('/')}"
+        # Ensure host ends with a slash
+        if not host.endswith('/'):
+            host = f"{host}/"
             
-        logger.debug(f"Preparing to upload {local_path} to {volume_path}")
+        # Full path in the volume
+        full_remote_path = f"{VOLUME_BASE_PATH}/{remote_path}"
+        logger.debug(f"Uploading {local_path} to {full_remote_path}")
         
-        # Ensure the target directory exists in the volume
-        dir_path = os.path.dirname(volume_path)
-        if not dir_path.startswith('dbfs:'):
-            dir_path = f"dbfs:{dir_path}"
-            
-        # The actual upload path should be in dbfs format
-        upload_path = volume_path if volume_path.startswith('dbfs:') else f"dbfs:{volume_path}"
+        # First, delete the file if it exists
+        # try:
+        #     response = requests.post(
+        #         f"{host}api/2.0/workspace/delete",
+        #         headers={"Authorization": f"Bearer {token}"},
+        #         json={"path": full_remote_path}
+        #     )
+        #     if response.status_code not in (200, 400, 404):  # 400 means already deleted, 404 means not found
+        #         logger.warning(f"Failed to delete existing file: {response.text}")
+        # except Exception as e:
+        #     logger.debug(f"Could not delete existing file (might not exist): {e}")
         
-        logger.debug(f"Uploading {local_path} to {volume_path}")
-        
-        # Read file content
+        # Create parent directories if they don't exist
+        parent_dir = os.path.dirname(full_remote_path)
+        if parent_dir:
+            try:
+                response = requests.post(
+                    f"{host}api/2.0/workspace/mkdirs",
+                    headers={"Authorization": f"Bearer {token}"},
+                    json={"path": parent_dir}
+                )
+                if response.status_code not in (200, 400):  # 400 means directory already exists
+                    logger.error(f"Failed to create directory {parent_dir}: {response.text}")
+                    return False
+            except Exception as e:
+                logger.error(f"Error creating directory {parent_dir}: {e}")
+                return False
+                
+        # Read the file content
         with open(local_path, 'rb') as f:
-            file_content = f.read()
+            content = f.read()
         
-        # Upload file using Files API
-        api_url = f"{host}/api/2.0/fs/files{volume_path}?overwrite=true"
-        headers = {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/octet-stream'
-        }
+        # Upload the file using workspace/import
+        response = requests.post(
+            f"{host}api/2.0/workspace/import",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"files": (os.path.basename(remote_path), content)},
+            data={
+                "path": full_remote_path,
+                "format": "AUTO",
+                "overwrite": "true"
+            }
+        )
         
-        response = requests.put(api_url, headers=headers, data=file_content)
-        
-        # 200/201/204 are all success status codes for upload
-        if response.status_code in (200, 201, 204):
-            logger.info(f"Successfully uploaded {local_path} to {volume_path}")
-            return True
-        else:
-            logger.error(f"Failed to upload {local_path}. Status: {response.status_code}, Response: {response.text}")
+        if response.status_code != 200:
+            logger.error(f"Failed to upload file: {response.text}")
             return False
             
+        logger.info(f"Successfully uploaded {local_path} to {full_remote_path}")
+        return True
+        
     except Exception as e:
-        logger.error(f"Error uploading {local_path}: {str(e)}", exc_info=True)
+        logger.error(f"Error uploading file: {str(e)}", exc_info=True)
         return False
 
 
@@ -132,13 +162,17 @@ def submit_job(
 ) -> Dict[str, Any]:
     """Submit a job to Databricks."""
     try:
-        # Upload job config
-        job_config_volume_path = f"jobs/{os.path.basename(job_config_path)}"
-        if not upload_file(host, token, job_config_path, job_config_volume_path):
+        # Upload job config to the volume
+        job_config_filename = os.path.basename(job_config_path)
+        job_config_remote_path = f"jobs/{job_config_filename}"
+        
+        logger.info(f"Uploading job config: {job_config_path} -> {job_config_remote_path}")
+        if not upload_file(host, token, job_config_path, job_config_remote_path):
             return {"error": "Failed to upload job config to volume"}
         
-        # Upload runner script
+        # Upload runner script to the volume
         runner_script_path = "runner/databricks_job_main.py"
+        runner_script_remote_path = "scripts/databricks_job_main.py"
         
         # Verify runner script exists locally
         if not os.path.exists(runner_script_path):
@@ -146,8 +180,8 @@ def submit_job(
             logger.error(error_msg)
             return {"error": error_msg}
             
-        logger.debug(f"Uploading runner script from {os.path.abspath(runner_script_path)}")
-        if not upload_file(host, token, runner_script_path, runner_script_path):
+        logger.info(f"Uploading runner script: {runner_script_path} -> {runner_script_remote_path}")
+        if not upload_file(host, token, runner_script_path, runner_script_remote_path):
             return {"error": "Failed to upload runner script to volume"}
             
         logger.debug(f"Runner script uploaded to {runner_script_path}")
@@ -166,21 +200,18 @@ def submit_job(
             "existing_cluster_id": cluster_id,
             "libraries": [
                 {
-                    "whl": f"dbfs:{VOLUME_BASE_PATH.lstrip('/')}/{WHEEL_FILE}"
-                }
+                    "whl": f"/Volumes/{VOLUME_BASE_PATH.lstrip('/')}/libraries/dist/{WHEEL_FILE}"
+                } # /Volumes/temp/feature_platform_testing/libraries
             ],
             "spark_python_task": {
-                "python_file": f"dbfs:{VOLUME_BASE_PATH.lstrip('/')}/{runner_script_path}",
+                "python_file": f"/Volumes/{VOLUME_BASE_PATH.lstrip('/')}/libraries/runner/databricks_job_main.py",
                 "parameters": [
-                    "--job-config", f"dbfs:{VOLUME_BASE_PATH.lstrip('/')}/{job_config_volume_path}"
+                    "--job-config", f"/Volumes/{VOLUME_BASE_PATH.lstrip('/')}/libraries/jobs/{os.path.basename(job_config_path)}"
                 ]
-            },
-            "python_named_params": {
-                "python_version": "3"
             },
             "max_retries": 1,
             "timeout_seconds": 3600,
-            "spark_python_version": "3"
+            "spark_version": "12.2.x-scala2.12"
         }
         
         # Submit job
@@ -299,15 +330,24 @@ def main() -> int:
         if not build_wheel():
             return 1
     
-    # Upload wheel file
+    # Upload wheel file to volume
     wheel_path = f"dist/{WHEEL_FILE}"
+    wheel_remote_path = f"dist/{WHEEL_FILE}"
+    
     if not os.path.exists(wheel_path):
         logger.error(f"Wheel file not found at {wheel_path}. Build it first or use --skip-wheel-build if already built.")
         return 1
     
-    if not upload_file(host, token, wheel_path, WHEEL_FILE):
-        logger.error("Failed to upload wheel file")
+    logger.info(f"Uploading wheel file to volume: {wheel_path} -> {wheel_remote_path}")
+    if not upload_file(host, token, wheel_path, wheel_remote_path):
+        logger.error("Failed to upload wheel file to volume")
         return 1
+        
+    # Also upload to the root of the volume for backward compatibility
+    wheel_remote_root_path = WHEEL_FILE
+    logger.info(f"Uploading wheel file to volume root: {wheel_path} -> {wheel_remote_root_path}")
+    if not upload_file(host, token, wheel_path, wheel_remote_root_path):
+        logger.warning("Failed to upload wheel file to volume root, continuing with dist/ path")
     
     # Submit the job
     result = submit_job(
