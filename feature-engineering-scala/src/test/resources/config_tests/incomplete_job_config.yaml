@@ -1,0 +1,9 @@
+job_name: "Incomplete Job"
+description: "This job config is missing required fields."
+input_source: # 'name' is missing here, which is a required field in JobInputSourceConfig
+  version: "1.0"
+feature_transformers:
+  - name: "TransactionIndicatorDeriver"
+    params: {}
+output_sink:
+  sink_type: "display"

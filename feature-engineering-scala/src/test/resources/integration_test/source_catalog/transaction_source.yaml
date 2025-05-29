@@ -1,0 +1,20 @@
+name: "integration_test_transactions"
+version: "v1"
+type: "parquet" 
+entity: "transaction"
+# Location will be dynamically set in the test to an absolute path 
+# pointing to the generated parquet file in target/test_output or similar.
+# For now, use a placeholder that will be replaced.
+location: "placeholder_for_transactions_parquet_path" 
+fields:
+  - {name: "transaction_id", type: "string"}
+  - {name: "user_id", type: "string"}
+  - {name: "transactiondatetime", type: "timestamp"}
+  - {name: "transactionamount", type: "double"}
+  - {name: "creditdebitindicator", type: "string"}
+  - {name: "transactionchannel", type: "string"}
+  - {name: "jupiterfinegraincategory", type: "string"}
+config: # DatabricksSourceDetailConfig; format helps if type is generic.
+  format: "parquet"
+metadata:
+  created_by: "integration_test_setup"

@@ -230,8 +230,8 @@ class UserMonthlyTransactionCounter(params: Map[String, Json]) extends FeatureTr
   override def apply(df: DataFrame): DataFrame = {
     logger.info(s"Applying UserMonthlyTransactionCounter. User ID: $userIdCol, Date: $transactionDateCol")
     val timestampCol = F.col(transactionDateCol).cast(TimestampType)
+    // For total count per partition (user, year, month), orderBy should not be in the window for count(*)
     val windowSpec = Window.partitionBy(F.col(userIdCol), F.year(timestampCol), F.month(timestampCol))
-                           .orderBy(timestampCol) // orderBy is needed for count over window, ensures consistent row for count
     df.withColumn(outputCol, F.count("*").over(windowSpec))
   }
 }

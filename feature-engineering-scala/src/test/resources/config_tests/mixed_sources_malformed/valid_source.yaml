@@ -1,0 +1,6 @@
+name: "valid_in_mixed_malformed"
+version: "1.0"
+type: "parquet"
+entity: "generic"
+location: "/data/valid"
+config: {}

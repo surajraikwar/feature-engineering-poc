@@ -13,6 +13,10 @@ case class FieldDefinition(
   required: Option[Boolean] = Some(false), // Pydantic default is False
   default: Option[String] = None
 )
+object FieldDefinition {
+  implicit val decoder: Decoder[FieldDefinition] = deriveDecoder[FieldDefinition]
+  implicit val encoder: Encoder[FieldDefinition] = deriveEncoder[FieldDefinition]
+}
 
 /** Defines a data quality check to be performed on a source. */
 case class QualityCheckDefinition(
@@ -20,6 +24,10 @@ case class QualityCheckDefinition(
   field: Option[String] = None,
   condition: Option[String] = None
 )
+object QualityCheckDefinition {
+  implicit val decoder: Decoder[QualityCheckDefinition] = deriveDecoder[QualityCheckDefinition]
+  implicit val encoder: Encoder[QualityCheckDefinition] = deriveEncoder[QualityCheckDefinition]
+}
 
 /** Defines metadata for configurations like creation/update timestamps and tags. */
 case class MetadataDefinition(
@@ -29,6 +37,10 @@ case class MetadataDefinition(
   updated_by: Option[String] = None,
   tags: Option[List[String]] = None
 )
+object MetadataDefinition {
+  implicit val decoder: Decoder[MetadataDefinition] = deriveDecoder[MetadataDefinition]
+  implicit val encoder: Encoder[MetadataDefinition] = deriveEncoder[MetadataDefinition]
+}
 
 /** Configuration specific to Databricks sources (table, query). */
 case class DatabricksSourceDetailConfig(
@@ -38,6 +50,10 @@ case class DatabricksSourceDetailConfig(
   query: Option[String] = None,
   incremental: Option[Boolean] = Some(false) // Pydantic default is False
 )
+object DatabricksSourceDetailConfig {
+  implicit val decoder: Decoder[DatabricksSourceDetailConfig] = deriveDecoder[DatabricksSourceDetailConfig]
+  implicit val encoder: Encoder[DatabricksSourceDetailConfig] = deriveEncoder[DatabricksSourceDetailConfig]
+}
 
 // SourceTypeSpecificConfig is a Union in Python.
 // For now, we directly use DatabricksSourceDetailConfig as it's the only member.
@@ -57,6 +73,10 @@ case class SourceDefinition(
   quality_checks: Option[List[QualityCheckDefinition]] = None,
   metadata: Option[MetadataDefinition] = None
 )
+object SourceDefinition {
+  implicit val decoder: Decoder[SourceDefinition] = deriveDecoder[SourceDefinition]
+  implicit val encoder: Encoder[SourceDefinition] = deriveEncoder[SourceDefinition]
+}
 
 // --- Job Configuration Models (from domain/jobs/config_loader.py) ---
 

@@ -20,6 +20,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "feature-engineering-scala",
     Compile / run / fork := true, // Ensure javaOptions are applied during sbt run
+    Test / fork := true, // Ensure javaOptions are applied during sbt test
     javaOptions ++= Seq( // Add JVM options for JDK compatibility
       "--add-opens=java.base/java.lang=ALL-UNNAMED",
       "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",

@@ -66,17 +66,15 @@ object SourceRegistry {
     Try {
       val dir = new File(directoryPath)
       if (dir.exists && dir.isDirectory) {
-        val yamlFiles = Files.walk(Paths.get(directoryPath))
-          .iterator() // Get Java Iterator
-          .asScala // Convert Java Iterator to Scala Iterator using JavaConverters
-          .filter(Files.isRegularFile(_))
-          .filter(path => {
-            val pathStr = path.toString
-            pathStr.endsWith(".yaml") || pathStr.endsWith(".yml")
-          })
-          .toList
+        // Using java.io.File#listFiles for potentially simpler directory listing
+        val yamlFileObjects = Option(dir.listFiles()) 
+          .map(_.toList)
+          .getOrElse(List.empty)
+          .filter(file => file.isFile && (file.getName.endsWith(".yaml") || file.getName.endsWith(".yml")))
+        
+        val yamlFilePaths = yamlFileObjects.map(_.toPath) // Convert to Path for consistency if needed later, or use File directly
 
-        val parsedDefinitions = yamlFiles.map { filePath =>
+        val parsedDefinitions = yamlFilePaths.map { filePath => // Changed from yamlFiles to yamlFilePaths
           Try {
             val yamlString = Source.fromFile(filePath.toFile).mkString
             parser.parse(yamlString) match {
