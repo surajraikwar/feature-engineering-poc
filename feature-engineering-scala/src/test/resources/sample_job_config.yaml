@@ -1,0 +1,26 @@
+job_name: "Sample Feature Generation Job"
+description: "A sample job to demonstrate configuration loading."
+input_source:
+  name: "customer_transactions"
+  version: "1.0"
+  load_params:
+    filter_condition: "transaction_amount > 100"
+feature_transformers:
+  - name: "transaction_amount_log"
+    params:
+      input_col: "transaction_amount"
+      output_col: "log_transaction_amount"
+      base: "natural" # example of an extra param
+  - name: "add_transaction_day_of_week"
+    params:
+      input_col: "transaction_date"
+      output_col: "day_of_week"
+output_sink:
+  sink_type: "delta_table" # or "display", "file" etc.
+  config:
+    path: "/mnt/processed/feature_store/sample_output"
+    mode: "overwrite"
+    num_rows: 50 # Overriding default
+    partition_by: ["country_code"]
+    options:
+      mergeSchema: "true"

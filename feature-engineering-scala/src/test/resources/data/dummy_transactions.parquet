@@ -1,0 +1,4 @@
+This is a placeholder and not a valid Parquet file.
+Spark will fail to read this, but it allows testing JobRunner's file handling path.
+Column names expected by transformers (matching source1_v1.yaml fields):
+transaction_id, customer_id, transactionamount, transactiontimestamp, creditdebitindicator, transactionstatus, transactionchannel, transactionmode, merchantcategory, country_code
