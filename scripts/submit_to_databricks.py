@@ -147,202 +147,279 @@ def upload_directory_to_volume(host: str, token: str, local_dir_path: str, targe
     return True
 
 # Refactored submit_job_to_databricks
-def submit_job_to_databricks(host: str, token: str, cluster_id: str, job_name: str, job_config_path: str, source_catalog_path: str) -> dict:
+def submit_job_to_databricks(host: str, token: str, cluster_id: str, job_name: str, 
+                          job_config_path: str, source_catalog_path: str = None, 
+                          dbfs_job_config_path: str = None) -> dict:
     """
-    Uploads necessary project artifacts to a Databricks Unity Catalog Volume,
-    then creates and runs a new job on Databricks using these artifacts.
+    Submits a job to Databricks with the specified configuration.
+    
+    Args:
+        host: Databricks workspace URL (e.g., https://your-workspace.cloud.databricks.com)
+        token: Databricks access token
+        cluster_id: ID of the cluster to run the job on
+        job_name: Name for the job
+        job_config_path: Local path to the job configuration YAML file
+        source_catalog_path: Path to the source catalog directory (optional)
+        dbfs_job_config_path: DBFS path where the job config should be stored (optional)
+        
+    Returns:
+        dict: A dictionary containing the job submission result or error information
     """
-    logger.info("Starting job submission process to Databricks...")
-
-    # 1. Define UC Volume Base Path
-    UC_VOLUME_BASE_PATH = os.environ.get("DATABRICKS_UC_VOLUME_PATH", "/Volumes/main/default/feature_platform_vol")
-    if not UC_VOLUME_BASE_PATH.startswith("/Volumes/"):
-        logger.error(f"DATABRICKS_UC_VOLUME_PATH (or default) '{UC_VOLUME_BASE_PATH}' must start with /Volumes/.")
-        return {"error": "Invalid DATABRICKS_UC_VOLUME_PATH configuration."}
-    logger.info(f"Using UC Volume base path: {UC_VOLUME_BASE_PATH}")
-
-    # 2. Build Wheel Prerequisite Logging
-    logger.info("This script expects the project wheel to be built in dist/ (e.g., using 'python -m build').")
-
-    # 3. Define Local and Target Volume Paths for Artifacts
-    repo_root = Path(__file__).parent.parent # Assuming scripts/ is one level down from repo root
+    logger.info("Starting job submission to Databricks...")
     
-    local_runner_script = repo_root / "runner" / "databricks_job_main.py"
-    if not local_runner_script.exists():
-        logger.error(f"Local runner script not found: {local_runner_script}")
-        return {"error": "Local runner script not found."}
-
-    dist_dir = repo_root / "dist"
-    local_wheel_files = list(dist_dir.glob("*.whl"))
-    if not local_wheel_files:
-        logger.error(f"No wheel file found in {dist_dir}. Please build the project first.")
-        return {"error": "Wheel file not found."}
-    local_wheel_path = local_wheel_files[0] # Take the first one found
-    logger.info(f"Found local wheel: {local_wheel_path}")
-
-    # job_config_path and source_catalog_path are provided as arguments (absolute paths)
-    local_job_config_path = Path(job_config_path)
-    if not local_job_config_path.exists():
-        logger.error(f"Local job config file not found: {local_job_config_path}")
-        return {"error": "Local job config file not found."}
-
-    local_source_catalog_dir = Path(source_catalog_path)
-    if not local_source_catalog_dir.is_dir():
-        logger.error(f"Local source catalog path is not a directory: {local_source_catalog_dir}")
-        return {"error": "Local source catalog path is not a directory."}
-
-    # Define target Volume paths
-    target_volume_runner_script = f"{UC_VOLUME_BASE_PATH}/runner/databricks_job_main.py"
-    target_volume_wheel = f"{UC_VOLUME_BASE_PATH}/libs/{local_wheel_path.name}"
-    target_volume_job_config = f"{UC_VOLUME_BASE_PATH}/configs/jobs/{local_job_config_path.name}"
-    # upload_directory_to_volume uploads local_source_catalog_dir into target_volume_source_catalog_parent
-    # e.g. if local_source_catalog_dir is 'source', it becomes /Volumes/.../source
-    target_volume_source_catalog_parent = UC_VOLUME_BASE_PATH 
-    # The path used in job parameters will be UC_VOLUME_BASE_PATH + local_source_catalog_dir.name
-    target_volume_source_catalog_for_job_param = f"{UC_VOLUME_BASE_PATH}/{local_source_catalog_dir.name}"
+    try:
+        # Convert relative paths to absolute paths
+        job_config_path = os.path.abspath(job_config_path)
+        
+        # Validate job config file exists
+        if not os.path.isfile(job_config_path):
+            error_msg = f"Job config file not found: {job_config_path}"
+            logger.error(error_msg)
+            return {"error": error_msg}
+        
+        # Validate source catalog directory if provided
+        if source_catalog_path:
+            source_catalog_path = os.path.abspath(source_catalog_path)
+            if not os.path.isdir(source_catalog_path):
+                error_msg = f"Source catalog directory not found: {source_catalog_path}"
+                logger.error(error_msg)
+                return {"error": error_msg}
+        
+        # Set default DBFS path if not provided
+        if not dbfs_job_config_path:
+            dbfs_job_config_path = f"/FileStore/feature-platform/configs/jobs/{os.path.basename(job_config_path)}"
+        
+        # Define DBFS paths
+        dbfs_runner_script = "/FileStore/feature-platform/runner/databricks_job_main.py"
+        dbfs_source_catalog = "/FileStore/feature-platform/source"
 
 
-    # 4. Upload Artifacts to UC Volume
-    logger.info(f"Uploading runner script {local_runner_script} to {target_volume_runner_script}...")
-    if not upload_file_to_volume(host, token, str(local_runner_script), target_volume_runner_script):
-        logger.error("Failed to upload runner script.")
-        return {"error": "Failed to upload runner script."}
-
-    logger.info(f"Uploading job config {local_job_config_path} to {target_volume_job_config}...")
-    if not upload_file_to_volume(host, token, str(local_job_config_path), target_volume_job_config):
-        logger.error("Failed to upload job config.")
-        return {"error": "Failed to upload job config."}
-
-    logger.info(f"Uploading wheel {local_wheel_path} to {target_volume_wheel}...")
-    if not upload_file_to_volume(host, token, str(local_wheel_path), target_volume_wheel):
-        logger.error("Failed to upload wheel.")
-        return {"error": "Failed to upload wheel."}
-    
-    logger.info(f"Uploading source catalog directory {local_source_catalog_dir} to parent {target_volume_source_catalog_parent}...")
-    if not upload_directory_to_volume(host, token, str(local_source_catalog_dir), target_volume_source_catalog_parent):
-        logger.error("Failed to upload source catalog directory.")
-        return {"error": "Failed to upload source catalog directory."}
-
-    # 5. Construct Job Definition JSON for /api/2.1/jobs/create
-    job_task_key = f"{job_name}_task"
-    job_data = {
-        "name": job_name,
-        "tasks": [
-            {
-                "task_key": job_task_key,
-                "spark_python_task": {
-                    "python_file": target_volume_runner_script, # Full UC Volume path
-                    "parameters": [
-                        "--job-config-path",
-                        target_volume_job_config, # Full UC Volume path
-                        "--source-catalog-path",
-                        target_volume_source_catalog_for_job_param # Full UC Volume path
-                    ]
+        # Upload job config to DBFS
+        logger.info(f"Uploading job config {job_config_path} to {dbfs_job_config_path}...")
+        try:
+            # Create parent directory if it doesn't exist
+            dbfs_config_dir = os.path.dirname(dbfs_job_config_path)
+            create_dbfs_directory(host, token, dbfs_config_dir)
+            
+            # Upload the file
+            if not upload_file_to_volume(host, token, job_config_path, dbfs_job_config_path):
+                error_msg = "Failed to upload job config to DBFS"
+                logger.error(error_msg)
+                return {"error": error_msg}
+        except Exception as e:
+            error_msg = f"Error uploading job config: {str(e)}"
+            logger.error(error_msg)
+            return {"error": error_msg}
+        
+        # Upload source catalog if provided
+        if source_catalog_path:
+            logger.info(f"Uploading source catalog from {source_catalog_path} to {dbfs_source_catalog}...")
+            try:
+                # Create target directory
+                create_dbfs_directory(host, token, dbfs_source_catalog)
+                
+                # Upload directory contents
+                if not upload_directory_to_volume(host, token, source_catalog_path, dbfs_source_catalog):
+                    error_msg = "Failed to upload source catalog to DBFS"
+                    logger.error(error_msg)
+                    return {"error": error_msg}
+            except Exception as e:
+                error_msg = f"Error uploading source catalog: {str(e)}"
+                logger.error(error_msg)
+                return {"error": error_msg}
+        
+        # Prepare the job payload
+        job_payload = {
+            "run_name": job_name,
+            "existing_cluster_id": cluster_id,
+            "libraries": [
+                {
+                    "jar": "dbfs:/FileStore/feature-platform/lib/feature-platform-assembly-0.1.0-SNAPSHOT.jar"
                 },
-                "existing_cluster_id": cluster_id,
-                "libraries": [
-                    {"whl": target_volume_wheel} # Full UC Volume path
+                {
+                    "pypi": {
+                        "package": "pydantic<2.0.0"
+                    }
+                },
+                {
+                    "pypi": {
+                        "package": "pyyaml"
+                    }
+                }
+            ],
+            "spark_python_task": {
+                "python_file": dbfs_runner_script,
+                "parameters": [
+                    "--job-config",
+                    dbfs_job_config_path
                 ]
+            },
+            "max_retries": 1,
+            "timeout_seconds": 0,
+            "email_notifications": {}
+        }
+        
+        # Add source catalog to parameters if provided
+        if source_catalog_path:
+            job_payload["spark_python_task"]["parameters"].extend([
+                "--source-catalog",
+                dbfs_source_catalog
+            ])
+
+        # Submit the job to Databricks
+        run_now_url = f"{host}/api/2.1/jobs/runs/submit"
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            logger.info("Submitting job to Databricks...")
+            logger.debug(f"Job payload: {json.dumps(job_payload, indent=2)}")
+            
+            response = requests.post(run_now_url, headers=headers, json=job_payload)
+            response.raise_for_status()
+            
+            result = response.json()
+            run_id = result.get('run_id')
+            
+            if not run_id:
+                error_msg = f"Failed to get run_id from response: {result}"
+                logger.error(error_msg)
+                return {"error": error_msg}
+                
+            logger.info(f"Job submitted successfully with run_id: {run_id}")
+            job_url = f"{host}/#job/{run_id}/run/{run_id}"
+            logger.info(f"View the job run at: {job_url}")
+            
+            return {
+                "run_id": run_id,
+                "job_url": job_url,
+                "success": True
             }
-        ],
-        "format": "MULTI_TASK" # Required for new job format
-    }
+            
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Error submitting job to Databricks: {str(e)}"
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_details = e.response.json()
+                    error_msg += f"\nError details: {json.dumps(error_details, indent=2)}"
+                except:
+                    error_msg += f"\nResponse: {e.response.text}"
+            logger.error(error_msg)
+            return {"error": error_msg}
+        
+    except Exception as e:
+        error_msg = f"Unexpected error in job submission: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return {"error": error_msg}
 
-    # 6. API Call to Create Job
-    create_job_api_url = f"{host}/api/2.1/jobs/create"
-    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
-    
-    logger.info(f"Creating job '{job_name}' with configuration: {json.dumps(job_data, indent=2)}")
-    try:
-        response_create = requests.post(create_job_api_url, headers=headers, json=job_data)
-        response_create.raise_for_status()
-        job_id = response_create.json().get("job_id")
-        logger.info(f"Job '{job_name}' created successfully. Job ID: {job_id}")
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTPError creating job: {e}. Response: {e.response.text if e.response else 'No response text'}")
-        return {"error": f"HTTPError creating job: {e.response.text if e.response else str(e)}"}
-    except requests.exceptions.RequestException as e:
-        logger.error(f"RequestException creating job: {e}")
-        return {"error": f"RequestException creating job: {str(e)}"}
-
-    if not job_id:
-        logger.error("Failed to create job or retrieve job_id.")
-        return {"error": "Failed to create job or retrieve job_id."}
-
-    # 7. API Call to Run Job
-    run_now_api_url = f"{host}/api/2.1/jobs/run-now"
-    run_payload = {"job_id": job_id}
-    logger.info(f"Triggering run for job ID {job_id} with payload: {json.dumps(run_payload, indent=2)}")
-    try:
-        response_run = requests.post(run_now_api_url, headers=headers, json=run_payload)
-        response_run.raise_for_status()
-        run_info = response_run.json()
-        logger.info(f"Job run triggered successfully. Run ID: {run_info.get('run_id')}, Number in Job: {run_info.get('number_in_job')}")
-        return run_info # Contains run_id, number_in_job etc.
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTPError running job: {e}. Response: {e.response.text if e.response else 'No response text'}")
-        return {"error": f"HTTPError running job: {e.response.text if e.response else str(e)}", "job_id": job_id}
-    except requests.exceptions.RequestException as e:
-        logger.error(f"RequestException running job: {e}")
-        return {"error": f"RequestException running job: {str(e)}", "job_id": job_id}
-
-
-# Placeholder for main execution logic
 def main():
-    parser = argparse.ArgumentParser(description="Submit files and jobs to Databricks.")
-    parser.add_argument('--host', required=True, help="Databricks workspace host (e.g., https://your-workspace.databricks.com)")
-    parser.add_argument('--token', required=True, help="Databricks Personal Access Token")
-    parser.add_argument('--local-path', help="Local file or directory path to upload.")
-    parser.add_argument('--volume-path', help="Target Unity Catalog Volume path (e.g., /Volumes/catalog/schema/volume/path/to/file_or_dir).")
-    parser.add_argument('--cluster-id', required=True, help="Databricks Cluster ID to run the job on.")
-    parser.add_argument('--job-name', required=True, help="Name for the Databricks job.")
-    parser.add_argument('--job-config-path', required=True, help="Path to the local job configuration YAML file.")
-    parser.add_argument('--source-catalog-path', required=True, help="Path to the local source catalog directory (e.g., 'source').")
-    # --local-path and --volume-path are removed as uploads are now handled by submit_job_to_databricks
-    parser.add_argument('--overwrite', action='store_true', help="Overwrite existing files in the Volume during artifact upload.")
-
-
+    """
+    Main function to handle command line arguments and submit the job.
+    
+    Usage:
+        python submit_to_databricks.py --job-name NAME --job-config PATH [--source-catalog PATH] [--dbfs-job-config PATH]
+    
+    Environment variables required:
+        DATABRICKS_HOST: Your Databricks workspace URL (e.g., https://your-workspace.cloud.databricks.com)
+        DATABRICKS_TOKEN: Your Databricks access token
+        DATABRICKS_CLUSTER_ID: ID of the cluster to run the job on
+    """
+    parser = argparse.ArgumentParser(description='Submit a job to Databricks')
+    
+    # Required arguments
+    parser.add_argument('--job-name', 
+                       type=str, 
+                       required=True, 
+                       help='Name of the job')
+    
+    parser.add_argument('--job-config', 
+                       type=str, 
+                       required=True, 
+                       help='Local path to the job configuration YAML file')
+    
+    # Optional arguments
+    parser.add_argument('--source-catalog', 
+                       type=str, 
+                       help='Path to the source catalog directory (optional)')
+    
+    parser.add_argument('--dbfs-job-config', 
+                       type=str, 
+                       help='DBFS path where the job config should be stored (optional)')
+    
+    parser.add_argument('--debug', 
+                       action='store_true',
+                       help='Enable debug logging')
+    
     args = parser.parse_args()
-
-    logger.info("Starting Databricks job submission process...")
-
-    # The job_config_path and source_catalog_path from args are already absolute after main uses os.path.abspath
-    # However, submit_job_to_databricks will re-evaluate based on its own location if not absolute.
-    # For clarity and robustness, ensure they are absolute before passing.
-    abs_job_config_path = os.path.abspath(args.job_config_path)
-    abs_source_catalog_path = os.path.abspath(args.source_catalog_path)
-
-
-    if not os.path.exists(abs_job_config_path):
-        logger.error(f"Job config file not found: {abs_job_config_path}")
-        return
-    if not os.path.isdir(abs_source_catalog_path): # Check if it's a directory
-        logger.error(f"Source catalog path is not a valid directory: {abs_source_catalog_path}")
-        return
-
-    job_submission_result = submit_job_to_databricks(
-        host=args.host,
-        token=args.token,
-        cluster_id=args.cluster_id,
-        job_name=args.job_name,
-        job_config_path=abs_job_config_path,
-        source_catalog_path=abs_source_catalog_path
-        # Overwrite for uploads is True by default in upload functions, could pass args.overwrite if needed
+    
+    # Configure logging
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler('databricks_job_submission.log')
+        ]
     )
-
-    if job_submission_result and job_submission_result.get("run_id"):
-        logger.info(f"Job submitted and run successfully. Run ID: {job_submission_result.get('run_id')}, Job ID: {job_submission_result.get('job_id')}")
-    elif job_submission_result and job_submission_result.get("job_id"):
-        logger.warning(f"Job created with ID: {job_submission_result.get('job_id')}, but failed to start run or run info not available. Error: {job_submission_result.get('error')}")
-    else:
-        logger.error(f"Job submission failed. Result: {job_submission_result}")
     
-    logger.info("Databricks submission process finished.")
+    logger = logging.getLogger(__name__)
+    
+    # Get environment variables
+    host = os.getenv('DATABRICKS_HOST')
+    token = os.getenv('DATABRICKS_TOKEN')
+    cluster_id = os.getenv('DATABRICKS_CLUSTER_ID')
+    
+    # Validate required environment variables
+    missing_vars = []
+    if not host:
+        missing_vars.append('DATABRICKS_HOST')
+    if not token:
+        missing_vars.append('DATABRICKS_TOKEN')
+    if not cluster_id:
+        missing_vars.append('DATABRICKS_CLUSTER_ID')
+    
+    if missing_vars:
+        error_msg = f"Error: The following required environment variables are not set: {', '.join(missing_vars)}"
+        print(error_msg)
+        logger.error(error_msg)
+        return 1
+    
+    logger.info(f"Starting job submission: {args.job_name}")
+    
+    try:
+        # Submit the job to Databricks
+        result = submit_job_to_databricks(
+            host=host,
+            token=token,
+            cluster_id=cluster_id,
+            job_name=args.job_name,
+            job_config_path=args.job_config,
+            source_catalog_path=args.source_catalog,
+            dbfs_job_config_path=args.dbfs_job_config
+        )
+        
+        # Handle the result
+        if "error" in result:
+            error_msg = f"Job submission failed: {result['error']}"
+            print(f"Error: {error_msg}")
+            logger.error(error_msg)
+            return 1
+        else:
+            success_msg = f"Job submitted successfully with run ID: {result.get('run_id')}"
+            print(success_msg)
+            if 'job_url' in result:
+                print(f"View the job run at: {result['job_url']}")
+            logger.info(success_msg)
+            return 0
+            
+    except Exception as e:
+        error_msg = f"Unexpected error during job submission: {str(e)}"
+        print(f"Error: {error_msg}")
+        logger.exception(error_msg)
+        return 1
 
 if __name__ == "__main__":
-                logger.error(f"Failed to load or submit job config {args.job_config_path}: {e}")
-    
-    logger.info("Databricks submission process finished.")
-
-if __name__ == "__main__":
-    main()
+    sys.exit(main())
