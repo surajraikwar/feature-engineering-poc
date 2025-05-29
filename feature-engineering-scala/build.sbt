@@ -1,27 +1,28 @@
-lazy val scala212 = "2.12.19" // Using latest 2.12.x patch version
+lazy val scala212 = "2.12.15" // Stable Scala 2.12.x version
 
 lazy val commonSettings = Seq(
   scalaVersion := scala212,
   organization := "com.example.featureplatform",
   version := "0.1.0-SNAPSHOT",
   resolvers ++= Seq(
-    Resolver.sonatypeRepo("releases"),
-    Resolver.sonatypeRepo("snapshots")
+    Resolver.mavenLocal,
+    Resolver.mavenCentral
   )
 )
 
-lazy val sparkVersion = "3.5.0" // Updated to latest Spark version for better JDK compatibility
-lazy val circeVersion = "0.14.1" // Choose a recent stable Circe version
-lazy val scalatestVersion = "3.2.11" // Choose a recent stable ScalaTest version
-lazy val logbackVersion = "1.2.10" // Choose a recent stable Logback version
+// Library versions
+lazy val sparkVersion = "3.3.2"
+lazy val deltaVersion = "3.1.0" // Compatible with Spark 3.3.x and available on Maven Central
+lazy val circeVersion = "0.14.5"
+lazy val scalatestVersion = "3.2.15"
+lazy val logbackVersion = "1.4.7"
+lazy val pureconfigVersion = "0.17.4"
 
 lazy val root = (project in file("."))
   .settings(commonSettings)
   .settings(
     name := "feature-engineering-scala",
-    // Configure forking for both run and test
     fork := true,
-    // Common JVM options for both run and test
     javaOptions ++= Seq(
       "--add-opens=java.base/java.lang=ALL-UNNAMED",
       "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
@@ -40,7 +41,6 @@ lazy val root = (project in file("."))
       "-Djava.security.manager=allow",
       "-Dio.netty.tryReflectionSetAccessible=true"
     ),
-    // Test-specific configurations
     Test / javaOptions ++= Seq(
       "-Dspark.master=local[*]",
       "-Dspark.driver.host=localhost",
@@ -50,27 +50,22 @@ lazy val root = (project in file("."))
       "-Dspark.sql.warehouse.dir=target/spark-warehouse"
     ),
     libraryDependencies ++= Seq(
-      // Spark and Delta dependencies are "provided" on Databricks
       "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-      "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-      "io.delta" %% "delta-spark" % "3.1.0" % "provided", // Delta also provided on Databricks
+      "org.apache.spark" %% "spark-sql"  % sparkVersion % "provided",
+      "io.delta"         %% "delta-spark" % deltaVersion,
 
-      // Circe YAML parsing
-      "io.circe" %% "circe-core" % circeVersion,
-      "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-yaml" % circeVersion,
-
-      // Logging
-      "ch.qos.logback" % "logback-classic" % logbackVersion,
-
-      // Testing
-      "org.scalatest" %% "scalatest" % scalatestVersion % Test
+      "com.github.pureconfig" %% "pureconfig"      % pureconfigVersion,
+      "io.circe"              %% "circe-yaml"      % "0.14.2",
+      "io.circe"              %% "circe-generic"   % circeVersion,
+      "io.circe"              %% "circe-parser"    % circeVersion,
+      "org.yaml"              %  "snakeyaml"       % "1.33",
+      "ch.qos.logback"        %  "logback-classic" % logbackVersion,
+      "org.scalatest"         %% "scalatest"       % scalatestVersion % Test
     ),
-    // sbt-assembly settings (example, adjust as needed)
     assembly / mainClass := Some("com.example.featureplatform.MainApp"),
     assembly / assemblyJarName := s"${name.value}-assembly-${version.value}.jar",
     assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-      case x => MergeStrategy.first
+      case PathList("META-INF", _ @_*) => MergeStrategy.discard
+      case _ => MergeStrategy.first
     }
   )

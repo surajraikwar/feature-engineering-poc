@@ -1,13 +1,14 @@
 package com.example.featureplatform.runner
 
-import com.example.featureplatform.config.{JobConfigLoader, SourceRegistry}
+import com.example.featureplatform.config.{AppConfig, JobConfigLoader, SourceRegistry}
 import com.example.featureplatform.spark.SparkSessionManager
-import com.example.featureplatform.sources.DatabricksSparkSource // Assuming this is the primary reader for now
+import com.example.featureplatform.sources.DatabricksSparkSource
 import com.example.featureplatform.features.TransformerFactory
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.slf4j.LoggerFactory
 import io.circe.Json
-import scala.util.Try // Added import for Try
+import scala.util.{Failure, Success, Try}
+import java.util.concurrent.TimeUnit
 
 /**
  * Main entry point for running feature engineering jobs.
@@ -25,9 +26,23 @@ object JobRunner {
    *             - args(1): Path to the root directory of the source catalog (containing source definitions).
    *             - args(2) (Optional): Spark master URL (e.g., "local[*]").
    */
+  /**
+   * Main entry point for the job
+   * @param args Command line arguments:
+   *             - args(0): Path to job config YAML
+   *             - args(1): Path to source catalog directory
+   *             - args(2): (Optional) Spark master URL (for local testing)
+   */
   def main(args: Array[String]): Unit = {
+    // Validate arguments
     if (args.length < 2) {
-      logger.error("Usage: JobRunner <jobConfigPath> <sourceCatalogPath> [sparkMaster]")
+      logger.error(""""|Invalid arguments. Usage:
+                     |  JobRunner <jobConfigPath> <sourceCatalogPath> [sparkMaster]
+                     |
+                     |  jobConfigPath    Path to job configuration YAML file
+                     |  sourceCatalogPath Path to directory containing source definitions
+                     |  sparkMaster      (Optional) Spark master URL (e.g., 'local[*]' for local testing)
+                     |""".stripMargin)
       System.exit(1)
     }
 
@@ -36,17 +51,42 @@ object JobRunner {
     val sparkMaster = if (args.length > 2) Some(args(2)) else None
 
     logger.info(s"Starting job with Job Config: $jobConfigPath, Source Catalog: $sourceCatalogPath")
-    if(sparkMaster.isDefined) logger.info(s"Spark master explicitly set to: ${sparkMaster.get}")
+    if (sparkMaster.isDefined) logger.info(s"Spark master explicitly set to: ${sparkMaster.get}")
 
-    val spark = SparkSessionManager.getSession(appName = "FeaturePlatformJobRunner", master = sparkMaster)
-    spark.sparkContext.setLogLevel("WARN") // Reduce verbosity for job run
+    // Initialize Spark session with proper error handling
+    val spark = try {
+      val session = SparkSessionManager.getSession(
+        appName = "FeaturePlatformJobRunner",
+        master = sparkMaster
+      )
+      logger.info("Successfully initialized Spark session")
+      session
+    } catch {
+      case e: Exception =>
+        logger.error("Failed to initialize Spark session", e)
+        System.exit(1)
+        throw e // This line will never be reached due to System.exit
+    }
 
-    val result: Either[Throwable, Unit] = for {
+    // Load job configuration
+    val result = for {
+      // Validate Databricks configuration
+      _ <- AppConfig.fromEnv() match {
+        case Right(config) =>
+          logger.info(s"Using Databricks workspace: ${config.databricks.serverHostname}")
+          logger.info(s"Catalog: ${config.databricks.catalog}, Schema: ${config.databricks.schema}")
+          Right(())
+        case Left(error) =>
+          Left(new Exception(s"Invalid Databricks configuration: $error"))
+      }
+
+      // Load job configuration
       jobConfig <- JobConfigLoader.loadJobConfig(jobConfigPath).left.map { e =>
         new Exception(s"Failed to load job config from $jobConfigPath: ${e.getMessage}", e)
       }
-      _ = logger.info(s"Successfully loaded job config for: ${jobConfig.job_name.getOrElse("Untitled Job")}")
+      _ = logger.info(s"Successfully loaded job config: ${jobConfig.job_name.getOrElse("Untitled Job")}")
 
+      // Load source registry
       sourceRegistry <- SourceRegistry.loadFromDirectory(sourceCatalogPath).left.map { e =>
         new Exception(s"Failed to load source registry from $sourceCatalogPath: ${e.getMessage}", e)
       }
@@ -139,17 +179,34 @@ object JobRunner {
       logger.info(s"Successfully processed output for job: ${jobConfig.job_name.getOrElse("Untitled Job")}")
     }
     
-    // Handle overall result
+    // Process the result
     result match {
-      case Right(_) => 
-        logger.info("Job completed successfully.")
-      case Left(e) => 
-        logger.error(s"Job failed: ${e.getMessage}", e)
-        // e.printStackTrace() // Uncomment for full stack trace if needed for debugging
-        System.exit(1) // Exit with error code
+      case Right(_) =>
+        logger.info("""
+          |========================================
+          |  JOB COMPLETED SUCCESSFULLY
+          |========================================""".stripMargin)
+
+      case Left(e) =>
+        val errorMsg = s"""
+          |========================================
+          |  JOB FAILED
+          |========================================
+          |${e.getMessage}
+          |========================================""".stripMargin
+        logger.error(errorMsg)
+        logger.error("Stack trace:", e)
+        System.exit(1)
     }
-    
-    logger.info("Stopping Spark session.")
-    spark.stop()
+
+    // Clean up resources
+    try {
+      logger.info("Stopping Spark session...")
+      spark.stop()
+      logger.info("Spark session stopped")
+    } catch {
+      case e: Exception =>
+        logger.warn("Error while stopping Spark session", e)
+    }
   }
 }
