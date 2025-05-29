@@ -638,3 +638,4 @@ venv/
 ENV/
 
 feature-platform.code-workspace
+.databricks
