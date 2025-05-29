@@ -1,0 +1,49 @@
+{
+  "name": "Feature Platform Job",
+  "job_cluster_key": "feature_platform_cluster",
+  "job_clusters": [
+    {
+      "job_cluster_key": "feature_platform_cluster",
+      "new_cluster": {
+        "spark_version": "13.3.x-scala2.12",
+        "node_type_id": "i3.xlarge",
+        "num_workers": 2,
+        "spark_conf": {
+          "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
+          "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+          "spark.databricks.delta.catalog.update.enabled": "true"
+        },
+        "data_security_mode": "SINGLE_USER",
+        "runtime_engine": "PHOTON",
+        "spark_version": "13.3.x-scala2.12",
+        "autoscale": {
+          "min_workers": 1,
+          "max_workers": 4
+        }
+      }
+    }
+  ],
+  "timeout_seconds": 86400,
+  "max_retries": 1,
+  "libraries": [
+    {
+      "maven": {
+        "coordinates": "io.delta:delta-core_2.12:2.4.0"
+      }
+    },
+    {
+      "maven": {
+        "coordinates": "com.typesafe.play:play-json_2.12:2.9.4"
+      }
+    }
+  ],
+  "email_notifications": {
+    "on_start": [],
+    "on_success": [],
+    "on_failure": []
+  },
+  "tags": {
+    "managed_by": "feature_platform",
+    "environment": "production"
+  }
+}

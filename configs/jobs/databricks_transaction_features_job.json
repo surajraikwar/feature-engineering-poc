@@ -1,0 +1,61 @@
+{
+  "job_name": "Transaction Features Generation",
+  "input_source": {
+    "source_type": "unity_catalog",
+    "catalog": "prod",
+    "schema": "transactions",
+    "table": "raw_transactions",
+    "format": "delta"
+  },
+  "transformers": [
+    {
+      "name": "TransactionStatusDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionChannelDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionValueDeriver",
+      "params": {
+        "high_value_threshold": 1000.0,
+        "input_col": "transaction_amount"
+      }
+    },
+    {
+      "name": "TransactionDatetimeDeriver",
+      "params": {
+        "timestamp_col": "transaction_timestamp"
+      }
+    },
+    {
+      "name": "TransactionModeDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionCategoryDeriver",
+      "params": {}
+    }
+  ],
+  "output_sink": {
+    "sink_type": "unity_catalog",
+    "catalog": "prod",
+    "schema": "features",
+    "table": "transaction_features",
+    "format": "delta",
+    "mode": "overwrite",
+    "partition_by": ["transaction_date"]
+  },
+  "execution": {
+    "catalog": "prod",
+    "schema": "feature_platform",
+    "table_name": "transaction_features"
+  },
+  "metadata": {
+    "owner": "data-engineering",
+    "team": "ml-platform",
+    "version": "1.0.0",
+    "schedule": "0 0 * * *"
+  }
+}
