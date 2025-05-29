@@ -1,5 +1,5 @@
-job_name: "generate_temp_transaction_features_v1"
-description: "Generates a set of derived features from the temporary MM transaction data."
+job_name: "generate_transaction_features"
+description: "Generates a set of derived features from the fact_mm_transactions data."
 
 input_source:
   name: "temp_fact_mm_transaction_source"
