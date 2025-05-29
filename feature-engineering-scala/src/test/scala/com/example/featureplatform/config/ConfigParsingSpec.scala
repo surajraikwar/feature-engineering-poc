@@ -6,58 +6,61 @@ import org.scalatest.EitherValues
 
 class ConfigParsingSpec extends AnyWordSpec with Matchers with EitherValues {
 
-  // Helper to get resource path. Assumes test execution from project root.
+  // Helper to get resource path. For test resources
   def getResourcePath(relativePath: String): String = {
-    s"src/main/resources/$relativePath"
+    s"src/test/resources/$relativePath"
   }
 
   "JobConfigLoader" should {
-    "successfully parse the 'generate_transaction_features_job.yaml' from resources" in {
-      val jobConfigPath = getResourcePath("configs/jobs/generate_transaction_features_job.yaml")
+    "successfully parse the 'sample_job_config.yaml' from test resources" in {
+      val jobConfigPath = getResourcePath("sample_job_config.yaml")
       val result = JobConfigLoader.loadJobConfig(jobConfigPath)
 
       result.isRight should be (true)
       val jobConfig = result.value
 
-      jobConfig.job_name shouldBe Some("generate_transaction_features")
-      jobConfig.input_source.name shouldBe "temp_fact_mm_transaction_source"
-      jobConfig.input_source.version shouldBe Some("v1")
-      jobConfig.feature_transformers.size shouldBe 7
-      jobConfig.feature_transformers(4).name shouldBe "TransactionValueDeriver"
-      jobConfig.feature_transformers(4).params.get("high_value_threshold").flatMap(_.as[Double].toOption) shouldBe Some(1000.0)
+      jobConfig.job_name shouldBe Some("Sample Feature Generation Job")
+      jobConfig.input_source.name shouldBe "customer_transactions"
+      jobConfig.input_source.version shouldBe Some("1.0")
+      jobConfig.feature_transformers.size shouldBe 2
+      jobConfig.feature_transformers.head.name shouldBe "transaction_amount_log"
+      jobConfig.feature_transformers.head.params.get("input_col").flatMap(_.asString) shouldBe Some("transaction_amount")
       
       jobConfig.output_sink.sink_type shouldBe "delta_table"
-      jobConfig.output_sink.config.path shouldBe Some("temp.feature_platform_testing.temp_transaction_features_v1")
+      jobConfig.output_sink.config.path shouldBe Some("/mnt/processed/feature_store/sample_output")
       jobConfig.output_sink.config.options.isDefined shouldBe true
       jobConfig.output_sink.config.options.get.get("mergeSchema").flatMap(_.asString) shouldBe Some("true")
     }
   }
 
   "SourceRegistry" should {
-    "successfully parse 'temp_fact_mm_transaction_source.yaml' from the resource catalog" in {
-      val sourceCatalogPath = getResourcePath("source_catalog")
+    "successfully parse source definition from the test resources" in {
+      val sourceCatalogPath = getResourcePath("sample_source_definitions")
       val result = SourceRegistry.loadFromDirectory(sourceCatalogPath)
 
       result.isRight should be (true)
       val registry = result.value
       
-      registry.getAllSourceDefinitions().size should be >= 1 // Could be other files too if tests run in sequence within same JVM
+      // Should find at least one source definition
+      val allSources = registry.getAllSourceDefinitions()
+      allSources.size should be >= 1
 
-      val sourceDefOpt = registry.getSourceDefinition("temp_fact_mm_transaction_source", "v1")
+      // Check the customer_transactions source definition
+      val sourceDefOpt = registry.getSourceDefinition("customer_transactions", "1.0")
       sourceDefOpt.isDefined should be (true)
       val sourceDef = sourceDefOpt.get
 
-      sourceDef.name shouldBe "temp_fact_mm_transaction_source"
-      sourceDef.version shouldBe "v1"
-      sourceDef.location shouldBe Some("temp.feature_platform_testing.temp_fact_mm_transaction")
-      sourceDef.`type` shouldBe "delta" // Check the 'type' field in SourceDefinition
+      sourceDef.name shouldBe "customer_transactions"
+      sourceDef.version shouldBe "1.0"
+      sourceDef.location shouldBe Some("src/test/resources/data/dummy_transactions.parquet")
+      sourceDef.`type` shouldBe "parquet"
       sourceDef.fields.isDefined shouldBe true
-      sourceDef.fields.get.length should be >= 2 // Checks at least the example fields provided
-      sourceDef.fields.get.head.name shouldBe "flag"
+      sourceDef.fields.get.length should be >= 2
+      sourceDef.fields.get.head.name shouldBe "transaction_id"
       
       sourceDef.metadata.isDefined shouldBe true
-      sourceDef.metadata.get.created_by shouldBe Some("Jules AI Agent")
-      sourceDef.metadata.get.tags shouldBe Some(List("temp_data", "fact_table"))
+      sourceDef.metadata.get.created_by shouldBe Some("test_user")
+      sourceDef.metadata.get.tags shouldBe Some(List("test_data", "parquet"))
     }
   }
 }

@@ -19,16 +19,35 @@ lazy val root = (project in file("."))
   .settings(commonSettings)
   .settings(
     name := "feature-engineering-scala",
-    Compile / run / fork := true, // Ensure javaOptions are applied during sbt run
-    Test / fork := true, // Ensure javaOptions are applied during sbt test
-    javaOptions ++= Seq( // Add JVM options for JDK compatibility
+    // Configure forking for both run and test
+    fork := true,
+    // Common JVM options for both run and test
+    javaOptions ++= Seq(
       "--add-opens=java.base/java.lang=ALL-UNNAMED",
       "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+      "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+      "--add-opens=java.base/java.io=ALL-UNNAMED",
+      "--add-opens=java.base/java.net=ALL-UNNAMED",
       "--add-opens=java.base/java.nio=ALL-UNNAMED",
       "--add-opens=java.base/java.util=ALL-UNNAMED",
       "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+      "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
       "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-      "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED" // Often needed too
+      "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+      "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+      "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+      "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+      "-Djava.security.manager=allow",
+      "-Dio.netty.tryReflectionSetAccessible=true"
+    ),
+    // Test-specific configurations
+    Test / javaOptions ++= Seq(
+      "-Dspark.master=local[*]",
+      "-Dspark.driver.host=localhost",
+      "-Dspark.driver.bindAddress=127.0.0.1",
+      "-Dspark.sql.shuffle.partitions=1",
+      "-Dspark.ui.enabled=false",
+      "-Dspark.sql.warehouse.dir=target/spark-warehouse"
     ),
     libraryDependencies ++= Seq(
       // Spark and Delta dependencies are "provided" on Databricks
