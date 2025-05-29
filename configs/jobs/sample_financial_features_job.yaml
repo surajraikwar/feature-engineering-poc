@@ -1,0 +1,56 @@
+# Example Job Configuration: Financial Features
+
+job_name: "financial_features_extraction_v1"
+description: "Computes key financial features for users from transaction data."
+
+input_source:
+  name: "mm_transaction_source"
+  version: "v1.0.0"
+  # load_params: {} # Optional, can be omitted if no job-specific params for now
+
+feature_transformers:
+  - name: "UserSpendAggregator" # Corresponds to the UserSpendAggregator class
+    params:
+      user_id_col: "user_id"
+      timestamp_col: "timestamp" # Ensure this column exists and is a date/timestamp
+      amount_col: "amount"
+      window_days: 30
+      total_spend_output_col_suffix: "_total_spend_30d"
+      avg_spend_output_col_suffix: "_avg_spend_30d"
+
+  - name: "UserMonthlyTransactionCounter" # Corresponds to UserMonthlyTransactionCounter
+    params:
+      user_id_col: "user_id"
+      timestamp_col: "timestamp"
+      output_col_year_month: "transaction_year_month"
+      output_col_txn_count: "user_monthly_transaction_count"
+
+  - name: "UserCategoricalSpendAggregator" # Corresponds to UserCategoricalSpendAggregator
+    params:
+      user_id_col: "user_id"
+      amount_col: "amount"
+      category_col: "category" # Ensure this column exists
+      target_category_value: "food and drinks" # The specific category to aggregate
+      output_col_name_prefix: "user_total_spend_" # Results in 'user_total_spend_food_and_drinks'
+
+output_sink:
+  sink_type: "display" # For now, we'll just display the output
+  config:
+    num_rows: 20 # Number of rows to display from the final DataFrame
+    truncate: false # Whether to truncate long string fields
+
+# Future output_sink examples:
+# output_sink:
+#   sink_type: "delta_table"
+#   config:
+#     path: "your_catalog.your_schema.user_financial_features"
+#     mode: "overwrite" # Or "append"
+#     # options: # Optional Spark write options for Delta
+#     #   mergeSchema: "true"
+
+# output_sink:
+#   sink_type: "parquet_files"
+#   config:
+#     path: "/mnt/feature_store/user_financial_features"
+#     mode: "overwrite"
+#     partition_by: ["year", "month"] # Example partitioning
