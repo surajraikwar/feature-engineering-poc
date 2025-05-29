@@ -1,0 +1,104 @@
+# Databricks Asset Bundle Configuration
+# See: https://docs.databricks.com/dev-tools/bundles/index.html
+
+bundle:
+  name: feature-platform
+  git:
+    origin_url: ${bundle.git.origin_url}
+    branch: ${bundle.git.branch}
+    commit: ${bundle.git.commit}
+
+targets:
+  # Development environment
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: ${DATABRICKS_HOST:?Missing DATABRICKS_HOST}
+      root_path: /Shared/feature-platform/dev
+    resources:
+      jobs:
+        feature_platform_job:
+          name: "${bundle.name}-dev"
+          tasks:
+            - task_key: "run_feature_engineering"
+              job_cluster_key: "feature_platform_cluster"
+              spark_jar_task:
+                main_class_name: "com.featureplatform.runner.FeatureJobRunner"
+                parameters: ["--config", "dbfs:/FileStore/feature-platform/configs/jobs/databricks_transaction_features_job.json"]
+      job_clusters:
+        - job_cluster_key: "feature_platform_cluster"
+          new_cluster:
+            spark_version: "13.3.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 2
+            spark_conf:
+              spark.sql.extensions: "io.delta.sql.DeltaSparkSessionExtension,io.delta.sql.DeltaSparkSessionExtension"
+              spark.sql.catalog.spark_catalog: "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+              spark.databricks.delta.catalog.update.enabled: "true"
+              spark.sql.legacy.timeParserPolicy: "LEGACY"
+              spark.sql.legacy.parquet.datetimeRebaseModeInWrite: "LEGACY"
+            data_security_mode: "SINGLE_USER"
+            runtime_engine: "PHOTON"
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+
+  # Production environment
+  prod:
+    mode: production
+    workspace:
+      host: ${DATABRICKS_HOST:?Missing DATABRICKS_HOST}
+      root_path: /Shared/feature-platform/prod
+    resources:
+      jobs:
+        feature_platform_job:
+          name: "${bundle.name}-prod"
+          tags:
+            environment: "production"
+            managed_by: "feature_platform"
+          schedule:
+            quartz_cron_expression: "0 0 0 * * ?"  # Daily at midnight
+            pause_status: "PAUSED"
+          tasks:
+            - task_key: "run_feature_engineering"
+              job_cluster_key: "feature_platform_cluster"
+              spark_jar_task:
+                main_class_name: "com.featureplatform.runner.FeatureJobRunner"
+                parameters: ["--config", "dbfs:/FileStore/feature-platform/configs/jobs/databricks_transaction_features_job.json"]
+      job_clusters:
+        - job_cluster_key: "feature_platform_cluster"
+          new_cluster:
+            spark_version: "13.3.x-scala2.12"
+            node_type_id: "i3.2xlarge"
+            num_workers: 4
+            spark_conf:
+              spark.sql.extensions: "io.delta.sql.DeltaSparkSessionExtension,io.delta.sql.DeltaSparkSessionExtension"
+              spark.sql.catalog.spark_catalog: "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+              spark.databricks.delta.catalog.update.enabled: "true"
+              spark.sql.legacy.timeParserPolicy: "LEGACY"
+              spark.sql.legacy.parquet.datetimeRebaseModeInWrite: "LEGACY"
+            data_security_mode: "SINGLE_USER"
+            runtime_engine: "PHOTON"
+            autoscale:
+              min_workers: 2
+              max_workers: 10
+
+# Global variables
+variables:
+  # These will be set by the CI/CD pipeline
+  environment: ${var.environment}
+  databricks_token: ${var.databricks_token}
+  databricks_host: ${var.databricks_host}
+
+# Permissions and access control
+permissions:
+  - group_names:
+      - "admins"
+    level: "CAN_MANAGE"
+
+# Dependencies and artifacts
+artifacts:
+  - path: "target/scala-2.12/feature-platform-1.0.0.jar"
+    type: "jar"
+    build: "sbt assembly"

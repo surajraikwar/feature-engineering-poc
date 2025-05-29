@@ -1,0 +1,53 @@
+{
+  "job_name": "generate_transaction_features_local",
+  "description": "Generates a set of derived features from the local transaction data.",
+  
+  "input_source": {
+    "name": "local_transaction_source",
+    "version": "v1",
+    "path": "data/transactions_sample.parquet"
+  },
+
+  "feature_transformers": [
+    {
+      "name": "TransactionIndicatorDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionDatetimeDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionStatusDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionChannelDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionValueDeriver",
+      "params": {
+        "high_value_threshold": 1000.0,
+        "input_col": "transactionamount",
+        "output_col": "is_high_value_transaction"
+      }
+    },
+    {
+      "name": "TransactionModeDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionCategoryDeriver",
+      "params": {}
+    }
+  ],
+
+  "output_sink": {
+    "sink_type": "parquet",
+    "config": {
+      "path": "output/transaction_features",
+      "mode": "overwrite"
+    }
+  }
+}
