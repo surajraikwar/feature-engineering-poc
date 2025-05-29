@@ -639,3 +639,9 @@ ENV/
 
 feature-platform.code-workspace
 .databricks
+dala/
+.sbt
+.idea
+.bsp/
+.metals/
+/.idea/
