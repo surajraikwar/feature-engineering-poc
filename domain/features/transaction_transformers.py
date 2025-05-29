@@ -28,7 +28,7 @@ class UserSpendAggregator(FeatureTransformer):
         self.total_spend_output_col = f"user_{window_days}d{total_spend_output_col_suffix}"
         self.avg_spend_output_col = f"user_{window_days}d{avg_spend_output_col_suffix}"
 
-    def apply(self, dataframe: SparkDataFrame) -> SparkDataFrame:
+    def apply(self, dataframe: SparkDataFrame) -> SparkDataFrame: # Changed from transform to apply
         logger.info(f"Applying UserSpendAggregator for {self.window_days}-day window.")
 
         # Ensure timestamp_col is of TimestampType for windowing functions
@@ -98,7 +98,7 @@ class UserMonthlyTransactionCounter(FeatureTransformer):
         self.output_col_year_month = output_col_year_month
         self.output_col_txn_count = output_col_txn_count
 
-    def apply(self, dataframe: SparkDataFrame) -> SparkDataFrame:
+    def apply(self, dataframe: SparkDataFrame) -> SparkDataFrame: # Changed from transform to apply
         logger.info("Applying UserMonthlyTransactionCounter.")
         
         # Create a year-month column
@@ -158,7 +158,7 @@ class UserCategoricalSpendAggregator(FeatureTransformer):
         self.output_col = f"{output_col_name_prefix}{safe_category_name}"
 
 
-    def apply(self, dataframe: SparkDataFrame) -> SparkDataFrame:
+    def apply(self, dataframe: SparkDataFrame) -> SparkDataFrame: # Changed from transform to apply
         logger.info(f"Applying UserCategoricalSpendAggregator for category '{self.target_category_value}'.")
 
         if self.category_col not in dataframe.columns:
@@ -186,3 +186,113 @@ class UserCategoricalSpendAggregator(FeatureTransformer):
         return (f"{self.__class__.__name__}(user_id_col='{self.user_id_col}', "
                 f"amount_col='{self.amount_col}', category_col='{self.category_col}', "
                 f"target_category_value='{self.target_category_value}')")
+
+# --- New Transformers Appended Below ---
+
+class TransactionIndicatorDeriver(FeatureTransformer):
+    """
+    Derives boolean indicators for credit and debit transactions.
+    """
+    def transform(self, df: SparkDataFrame) -> SparkDataFrame:
+        logger.info("Applying TransactionIndicatorDeriver.")
+        df = df.withColumn("is_credit", F.col("creditdebitindicator") == "CREDIT")
+        df = df.withColumn("is_debit", F.col("creditdebitindicator") == "DEBIT")
+        return df
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+class TransactionDatetimeDeriver(FeatureTransformer):
+    """
+    Derives datetime-based features from the transaction timestamp.
+    """
+    def transform(self, df: SparkDataFrame) -> SparkDataFrame:
+        logger.info("Applying TransactionDatetimeDeriver.")
+        df = df.withColumn("transaction_hour_of_day", F.hour(F.col("transactiondatetime")))
+        df = df.withColumn("transaction_day_of_week", F.date_format(F.col("transactiondatetime"), "EEEE"))
+        df = df.withColumn("is_weekend_transaction", F.col("transaction_day_of_week").isin(["Saturday", "Sunday"]))
+        return df
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+class TransactionStatusDeriver(FeatureTransformer):
+    """
+    Derives a boolean indicator for successful transactions.
+    """
+    def transform(self, df: SparkDataFrame) -> SparkDataFrame:
+        logger.info("Applying TransactionStatusDeriver.")
+        df = df.withColumn("is_successful_transaction", F.col("transactionstatus") == "SUCCESS")
+        return df
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+class TransactionChannelDeriver(FeatureTransformer):
+    """
+    Derives a boolean indicator for UPI transactions.
+    """
+    def transform(self, df: SparkDataFrame) -> SparkDataFrame:
+        logger.info("Applying TransactionChannelDeriver.")
+        df = df.withColumn("is_upi_transaction", F.upper(F.col("transactionchannel")).contains("UPI"))
+        return df
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+class TransactionValueDeriver(FeatureTransformer):
+    """
+    Derives a boolean indicator for high-value transactions.
+    """
+    def __init__(self, high_value_threshold: float = 1000.0, input_col: str = "transactionamount", output_col: str = "is_high_value_transaction"):
+        self.high_value_threshold = high_value_threshold
+        self.input_col = input_col
+        self.output_col = output_col
+        logger.info(f"Initialized TransactionValueDeriver with threshold: {self.high_value_threshold}, input: {self.input_col}, output: {self.output_col}")
+
+    def transform(self, df: SparkDataFrame) -> SparkDataFrame:
+        logger.info(f"Applying TransactionValueDeriver for column '{self.input_col}' with threshold {self.high_value_threshold}.")
+        if self.input_col not in df.columns:
+            raise ValueError(f"Input column '{self.input_col}' not found in DataFrame for TransactionValueDeriver.")
+        df = df.withColumn(self.output_col, F.col(self.input_col) > self.high_value_threshold)
+        return df
+
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}(high_value_threshold={self.high_value_threshold}, "
+                f"input_col='{self.input_col}', output_col='{self.output_col}')")
+
+class TransactionModeDeriver(FeatureTransformer):
+    """
+    Derives the transaction mode (online/offline) based on the transaction channel.
+    """
+    def transform(self, df: SparkDataFrame) -> SparkDataFrame:
+        logger.info("Applying TransactionModeDeriver.")
+        df = df.withColumn("transaction_mode", 
+                           F.when(
+                               F.upper(F.col("transactionchannel")).contains("APP") | \
+                               F.upper(F.col("transactionchannel")).contains("NET"),
+                               "online"
+                           ).otherwise("offline")
+                          )
+        return df
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+class TransactionCategoryDeriver(FeatureTransformer):
+    """
+    Derives a refined transaction category using a coalesce strategy.
+    """
+    def transform(self, df: SparkDataFrame) -> SparkDataFrame:
+        logger.info("Applying TransactionCategoryDeriver.")
+        df = df.withColumn("refined_transaction_category",
+                           F.coalesce(
+                               F.when(F.col("jupiterfinegraincategory") != "", F.col("jupiterfinegraincategory")),
+                               F.when(F.col("jupiter_coarsegrain_category") != "", F.col("jupiter_coarsegrain_category")),
+                               F.lit("uncategorized")
+                           )
+                          )
+        return df
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"

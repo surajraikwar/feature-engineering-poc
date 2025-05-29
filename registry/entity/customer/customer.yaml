@@ -13,10 +13,18 @@ fields:
     type: string
     required: true
     description: Full name of the customer
-  - name: email
+  - name: email_address # Renamed for clarity from just 'email' to avoid conflict if we add an 'email' entity relation fk
     type: string
     required: false
     description: Customer's email address
+  - name: phone_number # Added for completeness for sms relation
+    type: string
+    required: false
+    description: Customer's phone number for SMS
+  - name: merchant_id # Added to support the many:1 relation to merchant
+    type: string
+    required: false # Assuming it's optional
+    description: Identifier for the associated merchant
   - name: created_at
     type: datetime
     required: true
@@ -29,13 +37,17 @@ fields:
 relations:
   - to: transaction
     type: 1:many
+    foreign_key: user_id # Refers to the FK in the 'transaction' entity
     description: A customer can have multiple transactions
   - to: email
     type: 1:1
+    foreign_key: user_id # Refers to the FK in the 'email' entity
     description: A customer has one primary email
   - to: sms
     type: 1:1
+    foreign_key: user_id # Refers to the FK in the 'sms' entity
     description: A customer has one primary phone number
   - to: merchant
     type: many:1
+    foreign_key: merchant_id # Refers to the FK in THIS (customer) entity's fields
     description: A customer can be associated with a merchant (for B2B scenarios)
