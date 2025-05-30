@@ -3,7 +3,10 @@ package com.example.featureplatform.sources
 import com.example.featureplatform.config.{DatabricksSourceDetailConfig, FieldDefinition, SourceDefinition}
 import com.example.featureplatform.utils.SparkSessionTestWrapper
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Row, SaveMode}
+import org.apache.spark.sql.{Row, SaveMode, AnalysisException} // Added AnalysisException
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.EitherValues
 
 import java.io.File
 import java.nio.file.{Files, Paths}

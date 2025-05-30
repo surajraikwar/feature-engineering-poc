@@ -1,5 +1,8 @@
 package com.example.featureplatform
 
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
 class MainAppSpec extends AnyFlatSpec with Matchers {
 
   "A simple assertion" should "be true" in {

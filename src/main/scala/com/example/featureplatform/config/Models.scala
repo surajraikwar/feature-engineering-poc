@@ -1,5 +1,8 @@
 package com.example.featureplatform.config
 
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+
 // --- Core Source Definition Models (from domain/core/source_definition.py) ---
 
 /** Defines a field within a data source. */

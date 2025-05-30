@@ -3,6 +3,8 @@ package com.example.featureplatform.config
 import java.io.File
 import scala.io.Source
 import scala.util.{Either, Left, Right, Try}
+import io.circe.yaml.parser
+import io.circe.syntax._ // Required for the .as[T] syntax on Json objects
 
 /**
  * Utility object for loading job configurations from YAML files.

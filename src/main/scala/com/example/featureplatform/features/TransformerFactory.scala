@@ -1,6 +1,7 @@
 package com.example.featureplatform.features
 
 import scala.util.Try
+import io.circe.Json // Import for Json type
 
 // Correcting the import from JobConfig to FeatureTransformerConfig
 import com.example.featureplatform.config.FeatureTransformerConfig

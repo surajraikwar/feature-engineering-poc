@@ -1,6 +1,10 @@
 package com.example.featureplatform.config
 
 import java.io.FileNotFoundException
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.EitherValues
+import io.circe.{DecodingFailure, ParsingFailure} // For asserting error types
 
 class JobConfigLoaderSpec extends AnyWordSpec with Matchers with EitherValues {
 

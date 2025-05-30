@@ -1,6 +1,8 @@
 package com.example.featureplatform.utils
 
 import org.apache.spark.sql.SparkSession
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.Suite
 
 /**
  * Trait to provide a SparkSession for ScalaTest suites.
