@@ -1,10 +1,12 @@
 package com.example.featureplatform.config
 
 import java.io.File
+import java.nio.file.{Files, Paths, Path} // Added for Files.walk
 import scala.io.Source
 import scala.util.{Either, Left, Right, Try}
 import io.circe.parser // JSON parser
 import io.circe.syntax._ // Required for the .as[T] syntax on Json objects
+import scala.collection.JavaConverters._ // For converting Java stream to Scala collection
 
 /**
  * Utility object for loading job configurations from JSON files.
@@ -47,20 +49,18 @@ class SourceRegistry(private val sources: Map[(String, String), SourceDefinition
  */
 object SourceRegistry {
   /**
-   * Loads all source definitions from `*.json` files within a given directory.
+   * Loads all source definitions from `*.json` files within a given directory and its subdirectories.
    * @param directoryPath Path to the directory containing source definition files.
    * @return Either a Throwable on error, or a SourceRegistry instance populated with the definitions.
    */
   def loadFromDirectory(directoryPath: String): Either[Throwable, SourceRegistry] = {
     Try {
-      val dir = new File(directoryPath)
-      if (dir.exists && dir.isDirectory) {
-        val jsonFileObjects = Option(dir.listFiles())
-          .map(_.toList)
-          .getOrElse(List.empty)
-          .filter(file => file.isFile && file.getName.endsWith(".json")) // Filters for .json
-
-        val jsonFilePaths = jsonFileObjects.map(_.toPath)
+      val rootPath = Paths.get(directoryPath)
+      if (Files.exists(rootPath) && Files.isDirectory(rootPath)) {
+        val jsonFilePaths: List[Path] = Files.walk(rootPath)
+          .iterator().asScala // Convert Java Stream to Scala Iterator
+          .filter(path => Files.isRegularFile(path) && path.getFileName.toString.endsWith(".json"))
+          .toList
 
         val parsedDefinitions = jsonFilePaths.map { filePath =>
           Try {

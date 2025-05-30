@@ -65,8 +65,21 @@ lazy val root = (project in file("."))
     assembly / mainClass := Some("com.example.featureplatform.MainApp"),
     assembly / assemblyJarName := s"${name.value}-assembly-${version.value}.jar",
     assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", _ @_*) => MergeStrategy.discard
-      case _ => MergeStrategy.first
-    }
-    // dependencyOverrides += "org.yaml" % "snakeyaml" % "1.33" // Removed
+      case PathList("META-INF", "services", "org.apache.spark.sql.sources.DataSourceRegister") =>
+        MergeStrategy.concat // Concatenate DataSourceRegister files
+      case PathList("META-INF", xs @ _*) =>
+        MergeStrategy.discard // Discard other META-INF files
+      case _ =>
+        MergeStrategy.first // Use the first encountered for other conflicts
+    },
+    // Explicitly override Cats versions to ensure consistency
+    dependencyOverrides ++= Seq(
+      "org.typelevel" %% "cats-core"   % "2.9.0",
+      "org.typelevel" %% "cats-kernel" % "2.9.0"
+    )
   )
+
+assembly / assemblyShadeRules := Seq(
+  ShadeRule.rename("shapeless.**" -> "new_shapeless.@1").inAll,
+  ShadeRule.rename("cats.kernel.**" -> s"new_cats.kernel.@1").inAll
+)
