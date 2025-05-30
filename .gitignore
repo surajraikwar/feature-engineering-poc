@@ -638,3 +638,6 @@ venv/
 ENV/
 
 feature-platform.code-workspace
+.bsp
+.idea
+project
