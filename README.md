@@ -1,279 +1,146 @@
-# Feature Platform
+# Scala Feature Engineering Platform
 
-A feature platform for managing machine learning features with a focus on data quality, lineage, and reusability.
+## Overview
+
+This project provides a configuration-driven framework for executing feature engineering pipelines using Apache Spark, implemented in Scala. It is designed to be a robust and scalable solution for defining, managing, and applying feature transformations to various data sources. This project is a Scala-based successor to a similar Python implementation, aiming to leverage Scala's strengths for Spark-based data processing.
+
+The platform reads job definitions and source specifications from YAML configuration files, processes data using Spark DataFrames, applies a series of defined feature transformations, and writes the results to specified output sinks.
 
 ## Project Structure
 
+A high-level overview of the project directory structure:
+
 ```
-domain/                   # Project root (formerly feature-platform)
-├── config/               # Configuration files (Not extensively used yet)
-├── configs/              # Job configurations
-│   └── jobs/
-│       └── sample_financial_features_job.yaml # Example job definition
-├── docs/                 # Documentation (including entity diagrams)
-├── domain/               # Core package (formerly feature_platform)
-│   ├── core/             # Core functionality
-│   │   ├── __init__.py
-│   │   ├── config.py     # Centralized configuration (e.g., DatabricksConnectionConfig)
-│   │   ├── entity.py     # Entity and Relation definitions (Pydantic models for registry)
-│   │   ├── registry.py   # EntityRegistry for loading and managing entity definitions
-│   │   ├── source_definition.py # Pydantic models for source YAML definitions
-│   │   ├── source_registry.py   # Loads and manages source definitions from the catalog
-│   │   └── spark.py      # Spark session management (SparkSessionManager)
-│   ├── features/         # Feature transformation logic
-│   │   ├── __init__.py
-│   │   ├── factory.py    # Factory for instantiating transformers
-│   │   ├── financial_transformers.py # Domain-specific transformers
-│   │   └── transform.py  # Base FeatureTransformer and generic implementations
-│   ├── jobs/             # Job execution logic
-│   │   ├── __init__.py
-│   │   └── config_loader.py # Pydantic models and loader for job YAML configs
-│   ├── sources/          # Data source implementations
-│   │   ├── __init__.py
-│   │   ├── base.py       # Base Source class
-│   │   ├── databricks_spark.py # Source for Databricks using Spark (reads Delta tables)
-│   │   ├── databricks_sql.py   # Source for Databricks using SQL Connector
-│   │   └── spark_base.py # Base SparkSource class
-│   └── __init__.py
-├── registry/             # Entity definitions (YAML based) - See "Entity Registry" section
-│   └── entity/
-│       └── customer/
-│           └── customer.yaml # Example entity definition
-├── runner/               # Main script for running jobs
-│   └── execute_batch_job.py # Generic script to run YAML-defined batch jobs
-├── scripts/              # Utility and operational scripts
-│   ├── validate_registry.py        # Validates entity definitions in the registry
-│   ├── generate_entity_diagram.py  # Generates entity relationship diagrams
-│   ├── validate_source_catalog.py  # Validates source definitions in the source/ catalog
-│   └── archived_runners/           # Legacy runner scripts
-│       ├── run_databricks_connect_job.py
-│       └── run_spark_job.py
-├── source/               # Source Catalog: Reusable YAML definitions for data sources
-│   ├── README.md         # Describes the structure of source definition YAML files
-│   └── {source_name}/
-│       └── v{version}/
-│           └── {source_name}.yaml # e.g., source/transaction/v1/mm_transaction_source.yaml
-└── tests/                # Test suite
-    ├── integration/      # Integration tests
-    └── unit/             # Unit tests
+feature-engineering-scala/
+├── build.sbt                   # SBT build definition file
+├── project/                    # SBT plugins (e.g., sbt-assembly)
+├── configs/                    # Example configuration directory (not part of JAR)
+│   ├── jobs/                   # Example job YAML configurations
+│   │   └── sample_job_config.yaml
+│   └── source_definitions/     # Example source catalog
+│       └── source1_v1.yaml
+├── src/
+│   ├── main/
+│   │   ├── scala/com/example/featureplatform/
+│   │   │   ├── config/         # Configuration loading and case class models (Models.scala, ConfigLoader.scala)
+│   │   │   ├── features/       # Feature transformation logic (FeatureTransformer.scala, TransactionTransformers.scala, TransformerFactory.scala)
+│   │   │   ├── runner/         # Main job execution logic (JobRunner.scala)
+│   │   │   ├── sources/        # Data source reading logic (DataSource.scala, DatabricksSparkSource.scala)
+│   │   │   └── spark/          # SparkSession management (SparkSessionManager.scala)
+│   │   ├── resources/          # Application resources (e.g., logback.xml)
+│   └── test/
+│       ├── scala/              # Scala test files
+│       └── resources/          # Test resources (e.g., sample YAML configs, test data)
+├── target/                     # Compiled code and packaged JARs (created by sbt)
+├── DATABRICKS_GUIDE.md         # Guide for running jobs on Databricks
+├── DESIGN.md                   # Project design documentation
+├── LICENSE                     # Project license
+└── README.md                   # This file
 ```
+*(Note: `configs/` and `source_definitions/` are typically managed outside the packaged JAR, e.g., on DBFS or in a Git repo for Databricks Repos when deploying to Databricks. For local testing, they can be local paths.)*
 
 ## Core Components
 
-### Spark Integration
-*   **`SparkSessionManager` (`domain/core/spark.py`):** Manages the lifecycle of a `SparkSession`.
-*   **`DatabricksConnectionConfig` (`domain/core/config.py`):** Centralized dataclass for Databricks connection parameters (hostname, token, HTTP path, catalog, schema), primarily sourced from environment variables.
+*   **`config.Models`**: Defines Scala case classes that map to the structure of YAML configuration files (e.g., `JobConfig`, `SourceDefinition`, `FeatureTransformerConfig`).
+*   **`config.JobConfigLoader` & `config.SourceRegistry`**: Utilities for loading and parsing job configurations and source definitions from YAML files using Circe.
+*   **`spark.SparkSessionManager`**: Manages the creation and retrieval of SparkSession instances, ensuring they are configured with necessary support (e.g., Delta Lake).
+*   **`sources.DataSourceReader` (trait) & `sources.DatabricksSparkSource`**: Defines a contract for reading data sources and provides an implementation for reading from Databricks sources (tables, queries, file paths like Delta or Parquet).
+*   **`features.FeatureTransformer` (trait)**: A base trait for all feature transformations.
+*   **Specific Transformers (e.g., `features.TransactionIndicatorDeriver`)**: Concrete implementations of `FeatureTransformer` that perform specific data manipulations.
+*   **`features.TransformerFactory`**: Instantiates feature transformers based on configuration.
+*   **`runner.JobRunner`**: The main application entry point (`main` method) that orchestrates the entire feature engineering job execution flow.
 
-### Source Catalog
-The `source/` directory serves as a **catalog of reusable, versioned data source definitions**. Each data source is defined in a YAML file.
-*   **Structure:** Typically `source/{source_name}/v{version}/{source_name}.yaml`.
-*   **Content:** Each YAML file defines a single source, specifying its `name`, `version`, `type` (e.g., "databricks", "snowflake"), `entity` it relates to, connection/access `config` (like table names, paths, queries, database details), `fields` schema, and optional `quality_checks`. For detailed structure, see `source/README.md`.
-*   **`SourceDefinition` (`domain/core/source_definition.py`):** Pydantic models that define the expected structure of these source YAML files, enabling validation.
-*   **`SourceRegistry` (`domain/core/source_registry.py`):** A class responsible for loading all source definitions from the `source/` directory, validating them against `SourceDefinition` models, and making them retrievable by `name` and `version`.
+## Prerequisites
 
-### Data Source Implementations
-These are Python classes that know how to read data based on a `SourceDefinition` (retrieved from the catalog).
-*   **`Source` (`domain/sources/base.py`):** Abstract base class for all data sources.
-*   **`SparkSource` (`domain/sources/spark_base.py`):** Abstract base class for sources returning Spark DataFrames.
-*   **`DatabricksSparkSource` (`domain/sources/databricks_spark.py`):** Reads data from Databricks (typically Delta tables) using Spark. Its configuration (table name, format, etc.) is now primarily derived from a `SourceDefinition` loaded from the Source Catalog.
-*   **`DatabricksSQLSource` (`domain/sources/databricks_sql.py`):** Reads data from Databricks using the SQL Connector (returns pandas DataFrames). Similarly, its configuration is derived from the Source Catalog.
+*   **Java Development Kit (JDK):** JDK 11 or JDK 17 recommended for Spark 3.5.x and Scala 2.12.x. (JDK 21 was used during development with specific JVM flags).
+*   **SBT (Scala Build Tool):** Version 1.x (e.g., 1.9.x or newer).
 
-### Feature Transformers
-*   **`FeatureTransformer` (`domain/features/transform.py`):** Abstract base class for feature transformation logic.
-*   **Transformer Factory (`domain/features/factory.py`):** Transformers are registered and instantiated by the `get_transformer` factory function, allowing job configurations to refer to them by name.
+## Setup & Installation
 
-### Job Configuration & Loading
-*   **`config_loader.py` (`domain/jobs/config_loader.py`):** Contains Pydantic models for job YAML structure (see "Job Configuration (YAML)" section) and the `load_job_config` function.
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository_url>
+    cd feature-engineering-scala
+    ```
+2.  SBT handles dependency management automatically. No separate virtual environment setup is typically needed for Scala projects.
 
-### Entity Registry
-*   **Location:** `registry/entity/`
-*   **`Entity` & `Relation` (`domain/core/entity.py`):** Pydantic models for entity and relationship definitions.
-*   **`EntityRegistry` (`domain/core/registry.py`):** Loads and manages entity definitions from YAML files.
+## Building the Project
 
-## Getting Started
+*   **Compile the project:**
+    ```bash
+    sbt compile
+    ```
+*   **Run tests:**
+    ```bash
+    sbt test
+    ```
+*   **Package the application (create a fat JAR for deployment):**
+    ```bash
+    sbt assembly
+    ```
+    The output JAR will typically be located at `target/scala-2.12/feature-engineering-scala-assembly-X.Y.Z.jar` (version numbers may vary).
 
-### Prerequisites
+## Running Jobs Locally (Example)
 
-- Python 3.8+
-- pip
-- (Optional) Graphviz for `scripts/generate_entity_diagram.py`
+To run jobs locally, you'll need:
+1.  A job configuration YAML file.
+2.  A source catalog directory with source definition YAML files.
+3.  Sample data accessible via local paths if your source definitions point to local files (e.g., Parquet files).
+4.  A correctly configured Spark environment for local execution.
 
-### Installation
+**Using `sbt runMain`:**
+   This method uses sbt to run the application. Ensure Spark dependencies in `build.sbt` are NOT marked as `provided` (or use a sub-project for local testing that includes them). The `build.sbt` in this project is configured with `javaOptions` and `fork := true` to aid local execution with newer JDKs.
 
-1. Clone the repository:
    ```bash
-   git clone <repository-url>
-   cd domain  # Assuming the repository itself is now named 'domain' or you cd into it
+   sbt "runMain com.example.featureplatform.runner.JobRunner /path/to/your/job_config.yaml /path/to/your/source_catalog_dir local[*]"
    ```
+   Replace `/path/to/your/job_config.yaml` and `/path/to/your/source_catalog_dir` with actual paths. `local[*]` tells Spark to run locally using all available cores.
 
-2. Create and activate a virtual environment:
+**Using `spark-submit` with the assembled JAR:**
+   This is the standard way to run Spark applications. Ensure Spark dependencies in `build.sbt` ARE marked as `provided` when building the assembly JAR for this, as `spark-submit` provides the Spark environment.
+
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   # Ensure SPARK_HOME is set or spark-submit is in your PATH
+   spark-submit --class com.example.featureplatform.runner.JobRunner \
+     target/scala-2.12/feature-engineering-scala-assembly-YOUR_VERSION.jar \
+     /path/to/your/job_config.yaml /path/to/your/source_catalog_dir
    ```
+   *(Note: The current `build.sbt` is configured for local running by including Spark JARs. To build for `spark-submit` against a cluster that provides Spark, set Spark/Delta dependencies to `% "provided"` before `sbt assembly`.)*
 
-3. Install the package in development mode:
-   ```bash
-   pip install -e ".[dev]"
-   ```
-   This installs the package itself, along with core dependencies (`pyspark`, `pyyaml`, `pydantic`) and development tools (`pytest`, `black`, `isort`, etc.).
+## API Documentation (Scaladoc)
 
-## Running Batch Jobs (Configuration-Driven)
-
-Feature engineering tasks are primarily executed via configuration-driven scripts.
-- For local execution or using Databricks Connect, the main entry point is `runner/execute_batch_job.py`.
-- For running tasks natively as Databricks jobs, the dedicated entry point is `runner/databricks_job_main.py`.
-
-Both scripts take a YAML configuration file that defines the entire job.
-
-**Command (for local/Databricks Connect):**
+To generate API documentation for the project:
 ```bash
-python runner/execute_batch_job.py <path_to_job_config_yaml>
+sbt doc
 ```
-For example, to run the sample financial features job locally:
-```bash
-python runner/execute_batch_job.py configs/jobs/sample_financial_features_job.yaml
-```
+The documentation will be generated in `target/scala-2.12/api/` (the exact path might vary based on your Scala version). Open the `index.html` file in this directory to view the documentation. Basic Scaladoc comments have been added to key classes and methods.
 
-**Functionality (`execute_batch_job.py` and `databricks_job_main.py` via `run_feature_platform_job`):**
-The core job execution logic:
-1.  Loads the job configuration YAML.
-2.  Uses the `SourceRegistry` (initialized from `source/`) to look up and instantiate the data source specified in the job's `input_source` section. This means the details of the source (like table names, paths, connection info) are fetched from the YAML files in the `source/` catalog.
-3.  Applies the sequence of feature transformers defined in the job.
-4.  Directs the output to the specified sink (e.g., display, Delta table).
+## Configuration
 
-**Execution Environment:**
-*   **Local Spark:** If `SPARK_REMOTE` environment variable is not set, runs using a local Spark session (`local[*]`).
-*   **Databricks Connect:** Set `DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `DATABRICKS_CLUSTER_ID`, and `SPARK_REMOTE` to run against a Databricks cluster. The `SparkSessionManager` uses these.
+The behavior of the jobs is driven by YAML configuration files:
+*   **Job Configuration Files:** (e.g., `configs/jobs/my_job.yaml`) define a single job, including:
+    *   `job_name`, `description`
+    *   `input_source` (name and version of the source to read)
+    *   `feature_transformers` (a list of transformers to apply, with their names and parameters)
+    *   `output_sink` (type, path, mode, and other sink-specific configurations)
+*   **Source Catalog (Source Definitions):** (e.g., `source_definitions/my_source_v1.yaml`) defines data sources:
+    *   `name`, `version`, `description`, `type`, `entity`
+    *   `location` (e.g., path to a Delta table or Parquet files)
+    *   `fields` (schema definition, optional but used for validation)
+    *   `config` (source-type specific details, e.g., for Databricks: catalog, schema, table, query)
+    *   `quality_checks`, `metadata`
 
-### Running on Databricks
+These configuration files are loaded at runtime by `JobRunner`.
 
-For detailed instructions on how to set up and run the Feature Platform as a Databricks job using `runner/databricks_job_main.py`, including code deployment, cluster configuration, and job task setup, please see the [Databricks Deployment Guide](DATABRICKS_GUIDE.md).
+## Running on Databricks
 
-### Source Catalog Path Configuration
-
-The path to the Source Catalog directory (containing all `source/**/*.yaml` definitions) can be configured using an environment variable. This allows flexibility in locating your source definitions, especially in different deployment environments.
-
-*   **`FP_SOURCE_CATALOG_PATH`**: Specifies the path to your source catalog directory.
-    *   If this environment variable is not set, the system defaults to looking for a directory named `source/` relative to the current working directory of the script.
-    *   Both `runner/execute_batch_job.py` and `runner/databricks_job_main.py` (which sets this variable for the underlying logic if provided as a job parameter) respect this environment variable.
-
-## Job Configuration (YAML)
-
-Batch jobs are defined in YAML files (e.g., `configs/jobs/sample_financial_features_job.yaml`). The structure is validated by Pydantic models in `domain/jobs/config_loader.py`.
-
-```yaml
-job_name: "financial_features_extraction_v1"
-description: "Computes key financial features for users from transaction data."
-
-input_source:
-  name: "mm_transaction_source"  # Name of the source in the source/ catalog
-  version: "v1.0.0"             # Optional: specific version from the catalog
-  load_params:                  # Optional: job-specific runtime parameters for the source
-    # These parameters are passed to the source's read method or used as options.
-    # Example for a source that supports date filtering:
-    # filter_start_date: "2023-01-01"
-    # filter_end_date: "2023-01-31"
-
-feature_transformers:
-  - name: "UserSpendAggregator" # Name of the transformer class from a registry
-    params: # Parameters for the transformer's __init__ method
-      user_id_col: "user_id"
-      timestamp_col: "timestamp"
-      amount_col: "amount"
-      window_days: 30
-  # ... more transformers
-
-output_sink:
-  sink_type: "display" # Type of sink (e.g., display, delta_table, parquet_files)
-  config: # Parameters for the sink
-    num_rows: 20
-    truncate: false
-```
-
-**Key Sections:**
-
-*   **`job_name`, `description`**: Metadata for the job.
-*   **`input_source`**: Defines where to read data from.
-    *   `name`: References a data source defined in the `source/` catalog (e.g., "mm_transaction_source").
-    *   `version` (Optional): Specifies a version of the source from the catalog. If omitted, the `SourceRegistry` might fetch the latest or a default version (current behavior: raises error if multiple versions exist and none specified, unless a "latest" logic is implemented in `SourceRegistry`).
-    *   `load_params` (Optional): A dictionary of job-specific runtime parameters passed to the source's read operation (e.g., date filters, query parameters). These can override or supplement options defined in the source catalog YAML.
-    *   The detailed configuration (like table name, path, format, connection details) is now pulled from the corresponding YAML file in the `source/` catalog by the runner using the `name` and `version`.
-*   **`feature_transformers`**: A list of transformations to apply sequentially.
-    *   `name`: Maps to a `FeatureTransformer` class in the `TRANSFORMER_REGISTRY`.
-    *   `params`: Parameters for the transformer's `__init__` method.
-*   **`output_sink`**: Defines what to do with the final transformed DataFrame (e.g., `display`, `delta_table`, `parquet_files`).
-
-(Note: The old `YAML Configuration for Sources (source/**/*.yaml)` section is now effectively replaced by the "Source Catalog" section and how `input_source` in jobs refers to it.)
-
-## Scripts
-
-The `scripts/` directory contains various utility and operational scripts:
-
-*   **`validate_registry.py`**: Validates all entity definitions in the `registry/entity/` directory against the Pydantic models.
-*   **`generate_entity_diagram.py`**: Generates an entity relationship diagram from the definitions in `registry/entity/` (requires Graphviz). Output is typically saved to `docs/diagrams/`.
-*   **`validate_source_catalog.py`**: Validates all data source definition YAML files within the `source/` catalog against the `SourceDefinition` Pydantic models. This helps ensure that source definitions are correctly structured before they are used in jobs.
-*   **`archived_runners/`**: Contains legacy runner scripts (`run_databricks_connect_job.py`, `run_spark_job.py`) that are kept for reference but are superseded by `runner/execute_batch_job.py`.
+For detailed instructions on packaging, deploying, and running jobs on Databricks, please refer to [DATABRICKS_GUIDE.md](DATABRICKS_GUIDE.md).
 
 ## Development
 
-### Running Tests
-
-Run all tests:
-```bash
-pytest
-```
-This command uses settings from `pyproject.toml`, which may include coverage configuration.
-
-Run unit tests only:
-```bash
-pytest tests/unit/
-```
-
-Run integration tests:
-```bash
-pytest tests/integration/
-```
-
-### Code Quality & Style
-
-This project uses:
-- **Black** for code formatting.
-- **isort** for import sorting.
-- **Flake8** for linting (style and complexity checks).
-- **Mypy** for static type checking (configured in `pyproject.toml`).
-
-To format code:
-```bash
-black .
-isort .
-```
-
-To check for style issues and type errors:
-```bash
-flake8 .
-mypy . # Ensure mypy is configured and run from the project root
-```
-
-### Pre-commit Hooks
-
-Pre-commit hooks are set up to run checks automatically before each commit. They typically include:
-- Registry validation (`scripts/validate_registry.py`)
-- Source catalog validation (`scripts/validate_source_catalog.py`)
-- Code formatting (Black, isort)
-- Linting (Flake8)
-- Type checking (Mypy)
-
-This helps ensure code quality and consistency.
-
-## Contributing
-
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/your-amazing-feature`).
-3. Commit your changes (`git commit -m 'Add your amazing feature'`).
-4. Push to the branch (`git push origin feature/your-amazing-feature`).
-5. Open a Pull Request.
+*   **Code Style:** Consistent code formatting is encouraged. Consider integrating a tool like ScalaFmt.
+*   **Testing:** Unit and integration tests should be added under `src/test/scala/`.
 
 ## License
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
