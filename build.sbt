@@ -50,8 +50,8 @@ lazy val root = (project in file("."))
       "-Dspark.sql.warehouse.dir=target/spark-warehouse"
     ),
     libraryDependencies ++= Seq(
-      "org.apache.spark" %% "spark-core" % sparkVersion % "provided; Test", // Add Test scope
-      "org.apache.spark" %% "spark-sql"  % sparkVersion % "provided; Test", // Add Test scope
+      "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
+      "org.apache.spark" %% "spark-sql"  % sparkVersion % "provided",
       "io.delta"         %% "delta-core" % deltaVersion,
 
       "com.github.pureconfig" %% "pureconfig"      % pureconfigVersion,
