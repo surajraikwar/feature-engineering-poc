@@ -2,6 +2,10 @@ package com.example.featureplatform.config
 
 import java.io.FileNotFoundException
 import java.nio.file.{Files, Paths} // Added Files import
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.EitherValues
+import io.circe.{ParsingFailure, DecodingFailure} // For asserting error types
 
 class SourceRegistrySpec extends AnyWordSpec with Matchers with EitherValues {
 

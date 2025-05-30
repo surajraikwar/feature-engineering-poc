@@ -3,6 +3,9 @@ package com.example.featureplatform.features
 import com.example.featureplatform.utils.SparkSessionTestWrapper
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
+import io.circe.Json // For Json type and its methods like Json.fromString
 
 import java.sql.Timestamp // Import SparkSession
 

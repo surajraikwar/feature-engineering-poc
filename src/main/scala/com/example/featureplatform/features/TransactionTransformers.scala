@@ -1,5 +1,7 @@
 package com.example.featureplatform.features
 
+import io.circe.Json
+import io.circe.syntax._ // For .as[T] syntax
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.types.TimestampType
 import org.apache.spark.sql.{DataFrame, functions => F}

@@ -6,6 +6,7 @@ import com.example.featureplatform.sources.DatabricksSparkSource
 import com.example.featureplatform.spark.SparkSessionManager
 import org.apache.spark.sql.DataFrame
 import org.slf4j.LoggerFactory
+import io.circe.Json // Import for Json type
 
 import scala.util.Try
 

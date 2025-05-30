@@ -1,5 +1,11 @@
 package com.example.featureplatform.config
 
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.EitherValues
+import java.io.{File, PrintWriter}
+import scala.util.Try
+
 class ConfigParsingSpec extends AnyWordSpec with Matchers with EitherValues {
 
   // Helper to get resource path. For test resources

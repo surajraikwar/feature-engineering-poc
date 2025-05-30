@@ -1,6 +1,8 @@
 package com.example.featureplatform.config
 
 import scala.util.Try
+import pureconfig.ConfigSource
+import pureconfig.generic.auto._ // For automatic derivation of case class decoders
 
 /**
  * Main application configuration
