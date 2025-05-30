@@ -641,3 +641,6 @@ feature-platform.code-workspace
 .bsp
 .idea
 project
+.bloop
+.metals
+.vscode

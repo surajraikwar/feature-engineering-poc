@@ -1,0 +1,56 @@
+{
+  "name": "temp_fact_mm_transaction_source",
+  "description": "Source for temporary Money Movement transaction data for feature platform testing.",
+  "version": "v1",
+  "type": "delta",
+  "entity": "transaction",
+  "location": "temp.feature_platform_testing.temp_fact_mm_transaction",
+  "config": {},
+  "fields": [
+    {
+      "name": "flag",
+      "type": "string",
+      "description": "Flag value."
+    },
+    {
+      "name": "transaction_id",
+      "type": "string",
+      "description": "Unique transaction identifier."
+    },
+    {
+      "name": "user_id",
+      "type": "string",
+      "description": "Unique user identifier."
+    },
+    {
+      "name": "transactionamount",
+      "type": "double",
+      "description": "Amount of the transaction."
+    },
+    {
+      "name": "transactiondatetime",
+      "type": "timestamp",
+      "description": "Timestamp of the transaction."
+    },
+    {
+      "name": "creditdebitindicator",
+      "type": "string",
+      "description": "Indicates if credit or debit."
+    },
+    {
+      "name": "mm_enriched",
+      "type": "integer",
+      "description": "MM enriched flag or version."
+    }
+  ],
+  "metadata": {
+    "created_at": "2023-10-27T10:30:00Z",
+    "created_by": "Jules AI Agent",
+    "updated_at": "2023-10-27T10:30:00Z",
+    "updated_by": "Jules AI Agent",
+    "tags": [
+      "temp_data",
+      "fact_table"
+    ]
+  }
+}

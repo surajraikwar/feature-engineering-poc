@@ -1,6 +1,0 @@
-name: "malformed_source_in_mixed"
-version: "1.0"
-type: "parquet"
-  entity: "generic" # Incorrect indentation
-location: "/data/malformed"
-config: {}

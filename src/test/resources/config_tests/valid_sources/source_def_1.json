@@ -1,0 +1,21 @@
+{
+  "name": "transactions_parquet",
+  "version": "1.0",
+  "type": "parquet",
+  "entity": "transaction",
+  "location": "/data/transactions/parquet/v1.0",
+  "fields": [
+    {
+      "name": "transaction_id",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": "double"
+    }
+  ],
+  "config": {},
+  "metadata": {
+    "created_by": "test_user_1"
+  }
+}

@@ -1,33 +1,35 @@
 package com.example.featureplatform.config
 
 import java.io.File
+import java.nio.file.{Files, Paths, Path} // Added for Files.walk
 import scala.io.Source
 import scala.util.{Either, Left, Right, Try}
-import io.circe.yaml.parser
+import io.circe.parser // JSON parser
 import io.circe.syntax._ // Required for the .as[T] syntax on Json objects
+import scala.collection.JavaConverters._ // For converting Java stream to Scala collection
 
 /**
- * Utility object for loading job configurations from YAML files.
+ * Utility object for loading job configurations from JSON files.
  */
 object JobConfigLoader {
 
   /**
-   * Loads a [[JobConfig]] from the specified YAML file path.
-   * @param filePath Path to the YAML job configuration file.
+   * Loads a [[JobConfig]] from the specified JSON file path.
+   * @param filePath Path to the JSON job configuration file.
    * @return Either a Throwable on error, or the successfully parsed JobConfig.
    */
   def loadJobConfig(filePath: String): Either[Throwable, JobConfig] = {
     Try {
-      val yamlString = Source.fromFile(filePath).mkString
-      parser.parse(yamlString) match {
+      val jsonString = Source.fromFile(filePath).mkString
+      parser.parse(jsonString) match { // Uses JSON parser
         case Left(parsingError) => Left(parsingError)
         case Right(json) =>
-          json.as[JobConfig] match {
+          json.as[JobConfig] match { // Decodes from JSON model
             case Left(decodingError) => Left(decodingError)
             case Right(jobConfig) => Right(jobConfig)
           }
       }
-    }.toEither.flatMap(Predef.identity) // Flattens Try[Either[Throwable, JobConfig]] to Either[Throwable, JobConfig]
+    }.toEither.flatMap(Predef.identity)
   }
 }
 
@@ -36,17 +38,9 @@ object JobConfigLoader {
  * @param sources A map containing source definitions.
  */
 class SourceRegistry(private val sources: Map[(String, String), SourceDefinition]) {
-  /** Retrieves a specific source definition by name and version. */
   def getSourceDefinition(name: String, version: String): Option[SourceDefinition] = sources.get((name, version))
-
-  /**
-   * Retrieves a source definition by name. If multiple versions exist for the same name,
-   * this basic implementation returns the first one encountered.
-   */
   def getSourceDefinition(name: String): Option[SourceDefinition] =
     sources.collectFirst { case ((n, _), sd) if n == name => sd }
-
-  /** Returns all loaded source definitions as a list. */
   def getAllSourceDefinitions(): List[SourceDefinition] = sources.values.toList
 }
 
@@ -55,33 +49,29 @@ class SourceRegistry(private val sources: Map[(String, String), SourceDefinition
  */
 object SourceRegistry {
   /**
-   * Loads all source definitions from `*.yaml` or `*.yml` files within a given directory.
+   * Loads all source definitions from `*.json` files within a given directory and its subdirectories.
    * @param directoryPath Path to the directory containing source definition files.
    * @return Either a Throwable on error, or a SourceRegistry instance populated with the definitions.
    */
   def loadFromDirectory(directoryPath: String): Either[Throwable, SourceRegistry] = {
     Try {
-      val dir = new File(directoryPath)
-      if (dir.exists && dir.isDirectory) {
-        // Using java.io.File#listFiles for potentially simpler directory listing
-        val yamlFileObjects = Option(dir.listFiles()) 
-          .map(_.toList)
-          .getOrElse(List.empty)
-          .filter(file => file.isFile && (file.getName.endsWith(".yaml") || file.getName.endsWith(".yml")))
-        
-        val yamlFilePaths = yamlFileObjects.map(_.toPath) // Convert to Path for consistency if needed later, or use File directly
+      val rootPath = Paths.get(directoryPath)
+      if (Files.exists(rootPath) && Files.isDirectory(rootPath)) {
+        val jsonFilePaths: List[Path] = Files.walk(rootPath)
+          .iterator().asScala // Convert Java Stream to Scala Iterator
+          .filter(path => Files.isRegularFile(path) && path.getFileName.toString.endsWith(".json"))
+          .toList
 
-        val parsedDefinitions = yamlFilePaths.map { filePath => // Changed from yamlFiles to yamlFilePaths
+        val parsedDefinitions = jsonFilePaths.map { filePath =>
           Try {
-            val yamlString = Source.fromFile(filePath.toFile).mkString
-            parser.parse(yamlString) match {
+            val jsonString = Source.fromFile(filePath.toFile).mkString
+            parser.parse(jsonString) match { // Uses JSON parser
               case Left(parsingError) => Left(parsingError)
-              case Right(json) => json.as[SourceDefinition]
+              case Right(json) => json.as[SourceDefinition] // Decodes from JSON model
             }
-            }.toEither.flatMap(Predef.identity) // Similar flattening
+          }.toEither.flatMap(Predef.identity)
         }
 
-        // Collect all successful parses, or return the first error
         val successfulDefinitions = parsedDefinitions.collect { case Right(sd) => sd }
         val firstError = parsedDefinitions.collectFirst { case Left(err) => err }
 

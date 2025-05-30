@@ -1,0 +1,8 @@
+{
+  "name": "valid_in_mixed_incomplete",
+  "version": "1.0",
+  "type": "parquet",
+  "entity": "generic",
+  "location": "/data/valid_inc",
+  "config": {}
+}

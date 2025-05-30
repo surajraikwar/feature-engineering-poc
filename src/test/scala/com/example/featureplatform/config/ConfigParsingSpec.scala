@@ -14,8 +14,8 @@ class ConfigParsingSpec extends AnyWordSpec with Matchers with EitherValues {
   }
 
   "JobConfigLoader" should {
-    "successfully parse the 'sample_job_config.yaml' from test resources" in {
-      val jobConfigPath = getResourcePath("sample_job_config.yaml")
+    "successfully parse the 'sample_job_config.json' from test resources" in {
+      val jobConfigPath = getResourcePath("sample_job_config.json")
       val result = JobConfigLoader.loadJobConfig(jobConfigPath)
 
       result.isRight should be (true)

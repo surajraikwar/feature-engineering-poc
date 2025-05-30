@@ -1,6 +1,0 @@
-# 'name' field is missing, which is required for SourceDefinition
-version: "1.0"
-type: "parquet"
-entity: "generic_incomplete"
-location: "/data/incomplete"
-config: {}

@@ -94,7 +94,7 @@ if [ $MISSING_VARS -ne 0 ]; then
 fi
 
 # Set default values if not provided as arguments
-JOB_CONFIG="${1:-src/main/resources/configs/jobs/generate_transaction_features_job.yaml}"
+JOB_CONFIG="${1:-src/main/resources/configs/jobs/generate_transaction_features_job.json}"
 SOURCE_CATALOG="${2:-src/main/resources/source_catalog}"
 
 # Validate job config file exists

@@ -55,18 +55,31 @@ lazy val root = (project in file("."))
       "io.delta"         %% "delta-spark" % deltaVersion,
 
       "com.github.pureconfig" %% "pureconfig"      % pureconfigVersion,
-      "io.circe"              %% "circe-yaml"      % "0.14.2", // Reverted to specific working version
+      // "io.circe"              %% "circe-yaml"      % "0.14.2", // Removed
       "io.circe"              %% "circe-generic"   % circeVersion,
       "io.circe"              %% "circe-parser"    % circeVersion,
-      "org.yaml"              %  "snakeyaml"       % "1.33", // Reinstated direct SnakeYAML dependency
+      // "org.yaml"              %  "snakeyaml"       % "1.33", // Removed
       "ch.qos.logback"        %  "logback-classic" % logbackVersion,
       "org.scalatest"         %% "scalatest"       % scalatestVersion % Test
     ),
     assembly / mainClass := Some("com.example.featureplatform.MainApp"),
     assembly / assemblyJarName := s"${name.value}-assembly-${version.value}.jar",
     assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", _ @_*) => MergeStrategy.discard
-      case _ => MergeStrategy.first
+      case PathList("META-INF", "services", "org.apache.spark.sql.sources.DataSourceRegister") =>
+        MergeStrategy.concat // Concatenate DataSourceRegister files
+      case PathList("META-INF", xs @ _*) =>
+        MergeStrategy.discard // Discard other META-INF files
+      case _ =>
+        MergeStrategy.first // Use the first encountered for other conflicts
     },
-    dependencyOverrides += "org.yaml" % "snakeyaml" % "1.33" // Reinstate snakeyaml override
+    // Explicitly override Cats versions to ensure consistency
+    dependencyOverrides ++= Seq(
+      "org.typelevel" %% "cats-core"   % "2.9.0",
+      "org.typelevel" %% "cats-kernel" % "2.9.0"
+    )
   )
+
+assembly / assemblyShadeRules := Seq(
+  ShadeRule.rename("shapeless.**" -> "new_shapeless.@1").inAll,
+  ShadeRule.rename("cats.kernel.**" -> s"new_cats.kernel.@1").inAll
+)
