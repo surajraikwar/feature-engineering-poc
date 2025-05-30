@@ -1,0 +1,32 @@
+{
+  "job_name": "Test Feature Generation Job",
+  "description": "A test job configuration.",
+  "input_source": {
+    "name": "test_transactions",
+    "version": "1.1",
+    "load_params": {
+      "filter_condition": "amount > 10"
+    }
+  },
+  "feature_transformers": [
+    {
+      "name": "TransactionValueDeriver",
+      "params": {
+        "input_col": "amount",
+        "output_col": "is_high_value",
+        "high_value_threshold": 1000.0
+      }
+    },
+    {
+      "name": "TransactionIndicatorDeriver",
+      "params": {}
+    }
+  ],
+  "output_sink": {
+    "sink_type": "display",
+    "config": {
+      "num_rows": 15,
+      "truncate": true
+    }
+  }
+}

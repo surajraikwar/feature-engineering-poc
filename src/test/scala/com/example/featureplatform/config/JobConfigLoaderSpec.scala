@@ -13,7 +13,7 @@ class JobConfigLoaderSpec extends AnyWordSpec with Matchers with EitherValues {
   "JobConfigLoader" should {
 
     "successfully load a valid job configuration file" in {
-      val validConfigPath = s"$resourcesPath/valid_job_config.yaml"
+      val validConfigPath = s"$resourcesPath/valid_job_config.json"
       val result = JobConfigLoader.loadJobConfig(validConfigPath)
 
       result.isRight should be (true)
@@ -35,8 +35,8 @@ class JobConfigLoaderSpec extends AnyWordSpec with Matchers with EitherValues {
       jobConfig.output_sink.config.truncate shouldBe Some(true)
     }
 
-    "return a Left with ParsingFailure for a malformed YAML file" in {
-      val malformedConfigPath = s"$resourcesPath/malformed_job_config.yaml"
+    "return a Left with ParsingFailure for a malformed JSON file" in {
+      val malformedConfigPath = s"$resourcesPath/malformed_job_config.json"
       val result = JobConfigLoader.loadJobConfig(malformedConfigPath)
 
       result.isLeft should be (true)
@@ -49,9 +49,9 @@ class JobConfigLoaderSpec extends AnyWordSpec with Matchers with EitherValues {
 
     "return a Left with DecodingFailure for an incomplete job configuration (missing required fields)" in {
       // This test assumes that Circe's decoder (auto or semi-auto) will fail if a non-Option
-      // field in a case class is missing from the YAML.
+      // field in a case class is missing from the JSON.
       // JobInputSourceConfig has 'name: String', which is required.
-      val incompleteConfigPath = s"$resourcesPath/incomplete_job_config.yaml"
+      val incompleteConfigPath = s"$resourcesPath/incomplete_job_config.json"
       val result = JobConfigLoader.loadJobConfig(incompleteConfigPath)
       
       result.isLeft should be (true)
@@ -59,7 +59,7 @@ class JobConfigLoaderSpec extends AnyWordSpec with Matchers with EitherValues {
     }
 
     "return a Left with FileNotFoundException for a non-existent file path" in {
-      val nonExistentPath = s"$resourcesPath/non_existent_job_config.yaml"
+      val nonExistentPath = s"$resourcesPath/non_existent_job_config.json"
       val result = JobConfigLoader.loadJobConfig(nonExistentPath)
 
       result.isLeft should be (true)

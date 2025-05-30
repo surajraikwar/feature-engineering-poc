@@ -22,14 +22,14 @@ object JobRunner {
    * The main method for the JobRunner.
    *
    * @param args Command-line arguments:
-   *             - args(0): Path to the job configuration YAML file.
+   *             - args(0): Path to the job configuration JSON file.
    *             - args(1): Path to the root directory of the source catalog (containing source definitions).
    *             - args(2) (Optional): Spark master URL (e.g., "local[*]").
    */
   /**
    * Main entry point for the job
    * @param args Command line arguments:
-   *             - args(0): Path to job config YAML
+   *             - args(0): Path to job config JSON
    *             - args(1): Path to source catalog directory
    *             - args(2): (Optional) Spark master URL (for local testing)
    */
@@ -39,10 +39,10 @@ object JobRunner {
       logger.error(""""|Invalid arguments. Usage:
                      |  JobRunner <jobConfigPath> <sourceCatalogPath> [sparkMaster]
                      |
-                     |  jobConfigPath    Path to job configuration YAML file
+                     |  jobConfigPath    Path to job configuration JSON file
                      |  sourceCatalogPath Path to directory containing source definitions
                      |  sparkMaster      (Optional) Spark master URL (e.g., 'local[*]' for local testing)
-                     |""".stripMargin)
+                     |"""".stripMargin)
       System.exit(1)
     }
 
@@ -182,18 +182,18 @@ object JobRunner {
     // Process the result
     result match {
       case Right(_) =>
-        logger.info("""
+        logger.info(""""
           |========================================
           |  JOB COMPLETED SUCCESSFULLY
-          |========================================""".stripMargin)
+          |========================================"""".stripMargin)
 
       case Left(e) =>
-        val errorMsg = s"""
+        val errorMsg = s""""
           |========================================
           |  JOB FAILED
           |========================================
           |${e.getMessage}
-          |========================================""".stripMargin
+          |========================================"""".stripMargin
         logger.error(errorMsg)
         logger.error("Stack trace:", e)
         System.exit(1)

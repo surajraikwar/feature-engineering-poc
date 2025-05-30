@@ -1,0 +1,32 @@
+{
+  "name": "customer_profiles_delta",
+  "version": "2.1",
+  "type": "delta",
+  "entity": "customer",
+  "location": "/data/customers/delta/v2.1",
+  "fields": [
+    {
+      "name": "customer_id",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "full_name",
+      "type": "string"
+    },
+    {
+      "name": "email",
+      "type": "string"
+    }
+  ],
+  "config": {
+    "incremental": false
+  },
+  "metadata": {
+    "created_by": "test_user_2",
+    "tags": [
+      "pii",
+      "delta_table"
+    ]
+  }
+}

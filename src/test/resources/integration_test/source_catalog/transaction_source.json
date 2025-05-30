@@ -1,0 +1,43 @@
+{
+  "name": "integration_test_transactions",
+  "version": "v1",
+  "type": "parquet",
+  "entity": "transaction",
+  "location": "placeholder_for_transactions_parquet_path",
+  "fields": [
+    {
+      "name": "transaction_id",
+      "type": "string"
+    },
+    {
+      "name": "user_id",
+      "type": "string"
+    },
+    {
+      "name": "transactiondatetime",
+      "type": "timestamp"
+    },
+    {
+      "name": "transactionamount",
+      "type": "double"
+    },
+    {
+      "name": "creditdebitindicator",
+      "type": "string"
+    },
+    {
+      "name": "transactionchannel",
+      "type": "string"
+    },
+    {
+      "name": "jupiterfinegraincategory",
+      "type": "string"
+    }
+  ],
+  "config": {
+    "format": "parquet"
+  },
+  "metadata": {
+    "created_by": "integration_test_setup"
+  }
+}

@@ -49,13 +49,15 @@ class SourceRegistrySpec extends AnyWordSpec with Matchers with EitherValues {
       registry.getSourceDefinition("non_existent_source", "1.0") shouldBe None
     }
 
-    "return a Left with ParsingFailure if a directory contains a malformed YAML file" in {
+    "return a Left with DecodingFailure if a directory contains a malformed JSON file that is empty" in {
       val mixedMalformedDir = s"$resourcesPath/mixed_sources_malformed"
+      // malformed_source.json is now "{}" which is valid JSON but invalid for SourceDefinition
       val result = SourceRegistry.loadFromDirectory(mixedMalformedDir)
 
       result.isLeft should be (true)
       // SourceRegistry.loadFromDirectory propagates the first error encountered.
-      result.left.value shouldBe a [ParsingFailure]
+      // Parsing "{}" is fine, but decoding it to SourceDefinition will fail.
+      result.left.value shouldBe a [DecodingFailure]
     }
 
     "return a Left with DecodingFailure if a directory contains an incomplete source definition" in {

@@ -55,10 +55,10 @@ lazy val root = (project in file("."))
       "io.delta"         %% "delta-spark" % deltaVersion,
 
       "com.github.pureconfig" %% "pureconfig"      % pureconfigVersion,
-      "io.circe"              %% "circe-yaml"      % "0.14.2", // Reverted to specific working version
+      // "io.circe"              %% "circe-yaml"      % "0.14.2", // Removed
       "io.circe"              %% "circe-generic"   % circeVersion,
       "io.circe"              %% "circe-parser"    % circeVersion,
-      "org.yaml"              %  "snakeyaml"       % "1.33", // Reinstated direct SnakeYAML dependency
+      // "org.yaml"              %  "snakeyaml"       % "1.33", // Removed
       "ch.qos.logback"        %  "logback-classic" % logbackVersion,
       "org.scalatest"         %% "scalatest"       % scalatestVersion % Test
     ),
@@ -67,6 +67,6 @@ lazy val root = (project in file("."))
     assembly / assemblyMergeStrategy := {
       case PathList("META-INF", _ @_*) => MergeStrategy.discard
       case _ => MergeStrategy.first
-    },
-    dependencyOverrides += "org.yaml" % "snakeyaml" % "1.33" // Reinstate snakeyaml override
+    }
+    // dependencyOverrides += "org.yaml" % "snakeyaml" % "1.33" // Removed
   )

@@ -1,0 +1,42 @@
+{
+  "job_name": "Integration Test Job",
+  "description": "An integration test job for the JobRunner.",
+  "input_source": {
+    "name": "integration_test_transactions",
+    "version": "v1"
+  },
+  "feature_transformers": [
+    {
+      "name": "TransactionIndicatorDeriver",
+      "params": {}
+    },
+    {
+      "name": "TransactionValueDeriver",
+      "params": {
+        "input_col": "transactionamount",
+        "output_col": "is_high_value",
+        "high_value_threshold": 500.0
+      }
+    },
+    {
+      "name": "TransactionDatetimeDeriver",
+      "params": {
+        "transaction_timestamp_col": "transactiondatetime",
+        "output_col_hour": "tx_hour",
+        "output_col_day_of_week": "tx_day_of_week"
+      }
+    }
+  ],
+  "output_sink": {
+    "sink_type": "delta",
+    "config": {
+      "path": "placeholder_for_output_delta_path",
+      "mode": "overwrite",
+      "options": {
+        "optionA": "valueA",
+        "optionB": true,
+        "optionC": 123
+      }
+    }
+  }
+}
