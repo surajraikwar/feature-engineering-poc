@@ -67,5 +67,6 @@ lazy val root = (project in file("."))
     assembly / assemblyMergeStrategy := {
       case PathList("META-INF", _ @_*) => MergeStrategy.discard
       case _ => MergeStrategy.first
-    }
+    },
+    dependencyOverrides += "org.yaml" % "snakeyaml" % "1.33" // Enforce snakeyaml version
   )
