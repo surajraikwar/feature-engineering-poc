@@ -11,9 +11,9 @@ lazy val commonSettings = Seq(
 )
 
 // Library versions
-lazy val sparkVersion = "3.3.2"
-lazy val deltaVersion = "2.3.0" // Delta Lake 2.3.0 is for Spark 3.3.x
-lazy val circeVersion = "0.14.5"
+lazy val sparkVersion = "3.5.0"
+lazy val deltaVersion = "3.1.0" // Delta Lake 2.3.0 is for Spark 3.3.x
+lazy val circeVersion = "0.14.5" // Reverted Circe version
 lazy val scalatestVersion = "3.2.15"
 lazy val logbackVersion = "1.4.7"
 lazy val pureconfigVersion = "0.17.4"
@@ -52,13 +52,13 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
       "org.apache.spark" %% "spark-sql"  % sparkVersion % "provided",
-      "io.delta"         %% "delta-core" % deltaVersion,
+      "io.delta"         %% "delta-spark" % deltaVersion,
 
       "com.github.pureconfig" %% "pureconfig"      % pureconfigVersion,
-      "io.circe"              %% "circe-yaml"      % "0.14.2",
+      "io.circe"              %% "circe-yaml"      % "0.14.2", // Reverted to specific working version
       "io.circe"              %% "circe-generic"   % circeVersion,
       "io.circe"              %% "circe-parser"    % circeVersion,
-      "org.yaml"              %  "snakeyaml"       % "1.33",
+      "org.yaml"              %  "snakeyaml"       % "1.33", // Reinstated direct SnakeYAML dependency
       "ch.qos.logback"        %  "logback-classic" % logbackVersion,
       "org.scalatest"         %% "scalatest"       % scalatestVersion % Test
     ),
@@ -68,5 +68,5 @@ lazy val root = (project in file("."))
       case PathList("META-INF", _ @_*) => MergeStrategy.discard
       case _ => MergeStrategy.first
     },
-    dependencyOverrides += "org.yaml" % "snakeyaml" % "1.33" // Enforce snakeyaml version
+    dependencyOverrides += "org.yaml" % "snakeyaml" % "1.33" // Reinstate snakeyaml override
   )
