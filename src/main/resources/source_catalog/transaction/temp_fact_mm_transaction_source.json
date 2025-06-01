@@ -4,8 +4,10 @@
   "version": "v1",
   "type": "delta",
   "entity": "transaction",
-  "location": "temp.feature_platform_testing.temp_fact_mm_transaction",
-  "config": {},
+  "location": null,
+  "config": {
+    "table": "temp.feature_platform_testing.temp_fact_mm_transaction"
+  },
   "fields": [
     {
       "name": "flag",

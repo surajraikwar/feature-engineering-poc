@@ -134,25 +134,12 @@ log "Using JAR file: $JAR_FILE"
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
-# Create a properties file for Databricks Connect
-log "Creating Databricks Connect configuration..."
-cat > "$TEMP_DIR/dbconnect.conf" <<EOL
-# Databricks Connect Configuration
-spark.databricks.service.address=https://${DATABRICKS_SERVER_HOSTNAME}
-spark.databricks.service.token=${DATABRICKS_TOKEN}
-spark.databricks.service.clusterId=${DATABRICKS_CLUSTER_ID}
-spark.databricks.service.port=15001
-spark.databricks.service.jdbc.url=jdbc:spark://${DATABRICKS_SERVER_HOSTNAME}:443/default;transportMode=http;ssl=1;httpPath=${DATABRICKS_HTTP_PATH};AuthMech=3;UID=token;PWD=${DATABRICKS_TOKEN}
-EOL
-
 # Create a temporary application.conf with environment variables
+# This file now only contains catalog and schema information, as connection
+# details are handled by --remote and direct environment variable access in Scala.
 cat > "$TEMP_DIR/application.conf" <<EOL
 feature-platform {
   databricks {
-    server-hostname = "${DATABRICKS_SERVER_HOSTNAME}"
-    http-path = "${DATABRICKS_HTTP_PATH}"
-    token = "${DATABRICKS_TOKEN}"
-    cluster-id = "${DATABRICKS_CLUSTER_ID}"
     catalog = "${DATABRICKS_CATALOG}"
     schema = "${DATABRICKS_SCHEMA}"
   }
@@ -166,13 +153,16 @@ log "Source catalog: $SOURCE_CATALOG"
 
 set +e  # Don't exit on error so we can capture the exit code
 spark-submit \
-  --conf "spark.databricks.service.clusterId=${DATABRICKS_CLUSTER_ID}" \
+  --conf spark.databricks.uc.enabled=true \
+  --conf spark.sql.defaultCatalog=temp \
+  --conf spark.sql.catalog.temp=org.apache.spark.sql.delta.catalog.DeltaCatalog \
+  --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog \
+  --conf "spark.sql.warehouse.dir=/databricks/spark/warehouse" \
   --conf "spark.driver.extraJavaOptions=-Dconfig.file=$TEMP_DIR/application.conf" \
   --conf "spark.executor.extraJavaOptions=-Dconfig.file=$TEMP_DIR/application.conf" \
   --conf "spark.sql.catalog.databricks_catalog.catalog.name=${DATABRICKS_CATALOG}" \
   --conf "spark.sql.catalog.databricks_catalog.schema.name=${DATABRICKS_SCHEMA}" \
   --files "$TEMP_DIR/application.conf" \
-  --properties-file "$TEMP_DIR/dbconnect.conf" \
   --class com.example.featureplatform.runner.JobRunner \
   "$JAR_FILE" \
   "$JOB_CONFIG" \
